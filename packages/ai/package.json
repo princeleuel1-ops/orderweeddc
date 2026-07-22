@@ -1,0 +1,12 @@
+{
+  "name": "@owd/ai",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "src/gateway.mjs",
+  "scripts": {
+    "build": "node --check src/gateway.mjs && node --check scripts/local-quality-loop.mjs",
+    "test": "node --test tests",
+    "quality-loop": "node scripts/local-quality-loop.mjs"
+  }
+}

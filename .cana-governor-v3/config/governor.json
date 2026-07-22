@@ -1,0 +1,86 @@
+{
+    "schema_version":  3,
+    "workspace":  ".",
+    "project_name":  "CANA / Order Weed DC",
+    "canonical_domain":  "orderweeddc.com",
+    "initial_mission_id":  "M-STAGE-001",
+    "cycle_delay_seconds":  900,
+    "pause_poll_seconds":  15,
+    "daily_request_cap":  45,
+    "minimum_requests_for_full_cycle":  20,
+    "lane_timeout_seconds":  2700,
+    "max_mission_attempts":  4,
+    "backoff":  {
+                    "base_seconds":  60,
+                    "maximum_seconds":  21600,
+                    "jitter_seconds":  30
+                },
+    "opencode":  {
+                     "executable":  "opencode",
+                     "config_relative_path":  "config/opencode.governor.json",
+                     "auto_approve_non_denied":  true,
+                     "format":  "json"
+                 },
+    "lanes":  [
+                  {
+                      "id":  1,
+                      "name":  "strategy",
+                      "agent":  "cana-strategist",
+                      "model":  "cana_lane_1/tencent/hy3:free",
+                      "variant":  "high",
+                      "max_steps":  2,
+                      "key_env":  "CANA_LANE_1_API_KEY"
+                  },
+                  {
+                      "id":  2,
+                      "name":  "truth",
+                      "agent":  "cana-truth",
+                      "model":  "cana_lane_2/tencent/hy3:free",
+                      "variant":  "high",
+                      "max_steps":  3,
+                      "key_env":  "CANA_LANE_2_API_KEY"
+                  },
+                  {
+                      "id":  3,
+                      "name":  "implementation",
+                      "agent":  "cana-builder",
+                      "model":  "cana_lane_3/tencent/hy3:free",
+                      "variant":  "high",
+                      "max_steps":  8,
+                      "key_env":  "CANA_LANE_3_API_KEY"
+                  },
+                  {
+                      "id":  4,
+                      "name":  "verification",
+                      "agent":  "cana-verifier",
+                      "model":  "cana_lane_4/tencent/hy3:free",
+                      "variant":  "high",
+                      "max_steps":  5,
+                      "key_env":  "CANA_LANE_4_API_KEY"
+                  },
+                  {
+                      "id":  5,
+                      "name":  "release_judge",
+                      "agent":  "cana-judge",
+                      "model":  "cana_lane_5/tencent/hy3:free",
+                      "variant":  "high",
+                      "max_steps":  2,
+                      "key_env":  "CANA_LANE_5_API_KEY"
+                  }
+              ],
+    "gemini_images":  {
+                          "enabled":  true,
+                          "model":  "gemini-3.1-flash-image",
+                          "max_images_per_day":  2,
+                          "timeout_seconds":  600,
+                          "key_env":  "GEMINI_API_KEY"
+                      },
+    "release":  {
+                    "automatic_commit":  false,
+                    "automatic_push":  false,
+                    "automatic_deploy":  false,
+                    "require_clean_secret_scan":  true,
+                    "require_test_receipt":  true,
+                    "require_independent_verdict":  true
+                }
+}

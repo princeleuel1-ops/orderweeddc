@@ -1,0 +1,41 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "node --test tests",
+    "benchmark:discovery": "node scripts/benchmark-product-discovery.mjs",
+    "test:db": "node scripts/test-dispute-flow.mjs && node scripts/test-claim-lifecycle.mjs && node scripts/test-public-submission.mjs && node scripts/test-site-intelligence.mjs",
+    "test:http": "node scripts/http-truth-check.mjs && node scripts/http-style-check.mjs && node scripts/http-education-check.mjs && node scripts/http-auth-check.mjs && node scripts/http-admin-check.mjs && node scripts/http-business-check.mjs && node scripts/http-public-write-check.mjs",
+    "prisma:generate": "prisma generate",
+    "prisma:db": "prisma db push",
+    "seed": "node prisma/seed.mjs",
+    "credentials:rotate-demo": "node prisma/rotate-demo-credentials.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.24.0",
+    "next": "16.3.0-canary.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-leaflet": "^5.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0-canary.6",
+    "postcss": "8.5.19",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^5"
+  }
+}

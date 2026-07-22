@@ -1,0 +1,35 @@
+node_modules/
+.next/
+out/
+build/
+.env
+.env.local
+.env*.local
+.cana-local/
+*.db
+*.db-journal
+.agents/skills/cannabis_governor/governor_state.db
+dist/
+.turbo/
+# CANA Governor runtime and secrets
+.governor/
+.cana-loop/
+.cana-loop-mock/
+.cana-loop-tests/
+CANA_CONTROL_TOWER/
+/loop_report.md
+/loop_state.json
+/state-ledger.json
+.playwright-cli/
+/output/playwright/
+*.secrets.clixml
+__pycache__/
+*.pyc
+*.bak
+
+# Keep reviewed Governor/OpenCode source, not local dependency/runtime state.
+.cana-governor-v3/.opencode/node_modules/
+.opencode/*
+!.opencode/agents/
+.opencode/agents/*
+!.opencode/agents/cana-*.md

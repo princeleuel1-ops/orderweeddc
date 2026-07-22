@@ -1,0 +1,427 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Parent Holdings Organization
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  brands    Brand[]
+}
+
+// Represents one of the 10 child companies/brands
+model Brand {
+  id              String           @id @default(uuid())
+  name            String
+  domain          String           @unique // Hostname used to match requests (e.g. orderweeddc.com, brand1.localhost)
+  description     String?
+  logo            String? // Path or URL to brand logo
+  themePrimary    String           @default("#1EC36A") // CSS primary color code
+  themeSecondary  String           @default("#0D8343")
+  themeBg         String           @default("#0B0F12")
+  themeSurface    String           @default("#141A1E")
+  themeText       String           @default("#E2E8F0")
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  leads           LeadEvent[]
+  menuSelections  BrandMenu[]
+  loyaltyAccounts LoyaltyAccount[]
+}
+
+// User model for shared network-wide customer identity and administrative access
+model User {
+  id                String           @id @default(uuid())
+  email             String           @unique
+  password          String // Hashed password
+  name              String?
+  role              String           @default("CUSTOMER") // ADMIN, RETAILER_MANAGER, CUSTOMER
+  managedRetailerId String?
+  managedRetailer   Retailer?        @relation("RetailerManagers", fields: [managedRetailerId], references: [id], onDelete: SetNull)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  auditLogs         AuditLog[]
+  loyaltyAccounts   LoyaltyAccount[]
+  sessions          Session[]
+}
+
+// Retailer (Dispensary, Delivery service, or Brand)
+model Retailer {
+  id                 String            @id @default(uuid())
+  name               String
+  type               String            @default("delivery") // delivery, storefront, brand
+  address            String
+  city               String            @default("Washington")
+  state              String            @default("DC")
+  zip                String?
+  lat                Float
+  lng                Float
+  phone              String?
+  website            String?
+  email              String?
+  hours              String            @default("10:00 AM - 8:00 PM")
+  hoursSource        String            @default("Retailer Submitted")
+  isOpen             Boolean           @default(true)
+  licenseStatus      String            @default("PENDING") // VERIFIED, PENDING, EXPIRED, UNVERIFIED
+  licenseSource      String            @default("DC ABCA Registry")
+  licenseNumber      String?           @unique
+  lastLicenseCheck   DateTime?
+  lastInfoCheck      DateTime?
+  menuUpdatedAt      DateTime?
+  dealUpdatedAt      DateTime?
+  isSponsored        Boolean           @default(false)
+  dataStatus         String            @default("AWAITING_VERIFICATION") // DEMONSTRATION_ONLY, AWAITING_VERIFICATION, VERIFIED_CURRENT, STALE, DISPUTED
+  dataSource         String            @default("Unspecified")
+  sourceUrl          String?
+  retrievedAt        DateTime?
+  verifiedAt         DateTime?
+  freshnessExpiresAt DateTime?
+  confidence         Float?
+  reviewedBy         String?
+  isDemonstration    Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  evidence           LicenseEvidence[]
+  menus              MenuEntry[]
+  deals              Deal[]
+  leads              LeadEvent[]
+  claims             ClaimRequest[]
+  disputes           Dispute[]
+  managers           User[]            @relation("RetailerManagers")
+
+  @@index([dataStatus, isDemonstration, freshnessExpiresAt])
+  @@index([type])
+  @@index([lastLicenseCheck])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Pseudonymous rolling evidence for durable authentication throttling.
+// Raw email addresses and network addresses are never stored here.
+model AuthFailure {
+  id            String   @id @default(uuid())
+  accountDigest String
+  clientDigest  String
+  surface       String
+  occurredAt    DateTime @default(now())
+  expiresAt     DateTime
+
+  @@index([accountDigest, occurredAt])
+  @@index([clientDigest, occurredAt])
+  @@index([expiresAt])
+}
+
+// Pseudonymous, expiring reservations for public write abuse controls.
+// Raw network addresses, email addresses, license numbers, and corrections
+// are never stored here.
+model PublicSubmissionEvent {
+  id            String   @id @default(uuid())
+  clientDigest  String
+  subjectDigest String
+  surface       String
+  occurredAt    DateTime @default(now())
+  expiresAt     DateTime
+
+  @@unique([surface, subjectDigest])
+  @@index([surface, clientDigest, occurredAt])
+  @@index([surface, occurredAt])
+  @@index([expiresAt])
+}
+
+// Verification evidence submitted by a retailer or gathered by admins
+model LicenseEvidence {
+  id                 String    @id @default(uuid())
+  retailerId         String
+  retailer           Retailer  @relation(fields: [retailerId], references: [id], onDelete: Cascade)
+  documentUrl        String
+  verificationStatus String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  submittedAt        DateTime  @default(now())
+  verifiedAt         DateTime?
+  notes              String?
+  dataStatus         String    @default("AWAITING_VERIFICATION")
+  dataSource         String    @default("Retailer submission")
+  sourceUrl          String?
+  retrievedAt        DateTime?
+  freshnessExpiresAt DateTime?
+  confidence         Float?
+  reviewedBy         String?
+  isDemonstration    Boolean   @default(false)
+
+  @@index([verificationStatus, submittedAt])
+}
+
+// Request to claim a listing by a business owner
+model ClaimRequest {
+  id                    String   @id @default(uuid())
+  retailerId            String
+  retailer              Retailer @relation(fields: [retailerId], references: [id], onDelete: Cascade)
+  email                 String
+  phone                 String
+  requestedPasswordHash String?
+  status                String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedAt            DateTime?
+  reviewedBy            String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([status, email])
+  @@index([status, createdAt])
+}
+
+// Master Global Product Database (Unified catalog)
+model Product {
+  id                 String      @id @default(uuid())
+  name               String
+  description        String?
+  category           String // flower, edibles, concentrates, accessories, etc.
+  strainType         String? // sativa, indica, hybrid, cbd
+  thcPercent         Float?
+  cbdPercent         Float?
+  image              String?
+  dataStatus         String      @default("AWAITING_VERIFICATION")
+  dataSource         String      @default("Unspecified")
+  sourceUrl          String?
+  retrievedAt        DateTime?
+  verifiedAt         DateTime?
+  freshnessExpiresAt DateTime?
+  confidence         Float?
+  reviewedBy         String?
+  isDemonstration    Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  menuEntries        MenuEntry[]
+
+  @@index([name])
+}
+
+// Menu Entry - Connects Products to Retailers with pricing
+model MenuEntry {
+  id                 String      @id @default(uuid())
+  retailerId         String
+  retailer           Retailer    @relation(fields: [retailerId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price              Float
+  quantity           Int?
+  inStock            Boolean     @default(true)
+  dataStatus         String      @default("AWAITING_VERIFICATION")
+  dataSource         String      @default("Unspecified")
+  sourceUrl          String?
+  retrievedAt        DateTime?
+  verifiedAt         DateTime?
+  freshnessExpiresAt DateTime?
+  confidence         Float?
+  reviewedBy         String?
+  isDemonstration    Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  brandMenus         BrandMenu[]
+
+  @@unique([retailerId, productId])
+  @@index([retailerId, updatedAt])
+}
+
+// Join table to determine which products/menu items are visible on which Brand platform
+model BrandMenu {
+  id          String    @id @default(uuid())
+  brandId     String
+  brand       Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  menuEntryId String
+  menuEntry   MenuEntry @relation(fields: [menuEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, menuEntryId])
+}
+
+// Retailer deals and promotions
+model Deal {
+  id                 String    @id @default(uuid())
+  retailerId         String
+  retailer           Retailer  @relation(fields: [retailerId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?
+  discount           String? // e.g. "20% off", "$10 off"
+  code               String? // promo code
+  expiryDate         DateTime
+  isActive           Boolean   @default(true)
+  dataStatus         String    @default("AWAITING_VERIFICATION")
+  dataSource         String    @default("Unspecified")
+  sourceUrl          String?
+  retrievedAt        DateTime?
+  verifiedAt         DateTime?
+  freshnessExpiresAt DateTime?
+  confidence         Float?
+  reviewedBy         String?
+  isDemonstration    Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([retailerId, createdAt])
+}
+
+// Analytics and Lead attribution events
+model LeadEvent {
+  id         String   @id @default(uuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  retailerId String
+  retailer   Retailer @relation(fields: [retailerId], references: [id], onDelete: Cascade)
+  eventType  String // HANDOFF_CLICK, PHONE_CALL_CLICK, WEBSITE_CLICK, MENU_VIEW
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([retailerId, eventType, createdAt])
+}
+
+// System Audit Logs for security and release records
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // e.g. "APPROVE_RETAILER", "UPDATE_BRAND_THEME", "AI_PROVIDER_CALL"
+  details   String
+  timestamp DateTime @default(now())
+
+  @@index([timestamp])
+}
+
+// An administrator-captured, local evidence snapshot for the Site Brain.
+// Captures are bounded and never imply that external search or analytics
+// providers have been connected.
+model SiteIntelligenceSnapshot {
+  id                     String            @id @default(uuid())
+  fingerprint            String
+  schemaVersion          Int               @default(1)
+  capturedById           String
+  capturedAt             DateTime          @default(now())
+  asOf                   DateTime
+  routeInventoryHash     String
+  localEvidenceStatus    String
+  externalEvidenceStatus String
+  observationCount       Int
+  attentionCount         Int
+  blockedCount           Int
+  observations           SiteObservation[]
+
+  @@index([capturedAt])
+  @@index([fingerprint, capturedAt])
+}
+
+// One immutable finding inside a captured Site Brain snapshot.
+model SiteObservation {
+  id             String                   @id @default(uuid())
+  snapshotId     String
+  snapshot       SiteIntelligenceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  observationKey String
+  plane          String
+  state          String
+  severity       String
+  title          String
+  summary        String
+  evidence       String
+  uncertainty    String
+  preparedAction String
+  authority      String
+  quantity       Int?
+  createdAt      DateTime                 @default(now())
+
+  @@unique([snapshotId, observationKey])
+  @@index([state, severity])
+}
+
+// Loyalty account mapping points earned per Brand/Company on the network
+model LoyaltyAccount {
+  id           String               @id @default(uuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brandId      String
+  brand        Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  points       Int                  @default(0)
+  tier         String               @default("BRONZE") // BRONZE, SILVER, GOLD
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  transactions LoyaltyTransaction[]
+
+  @@unique([userId, brandId])
+}
+
+// History of points changes
+model LoyaltyTransaction {
+  id               String         @id @default(uuid())
+  loyaltyAccountId String
+  loyaltyAccount   LoyaltyAccount @relation(fields: [loyaltyAccountId], references: [id], onDelete: Cascade)
+  pointsChanged    Int
+  description      String
+  createdAt        DateTime       @default(now())
+}
+
+// CMS Educational Articles
+model Article {
+  id                 String    @id @default(uuid())
+  title              String
+  slug               String    @unique
+  content            String
+  image              String?
+  author             String    @default("Holding Editorial Staff")
+  dataStatus         String    @default("AWAITING_VERIFICATION")
+  dataSource         String    @default("Unspecified")
+  sourceUrl          String?
+  retrievedAt        DateTime?
+  verifiedAt         DateTime?
+  freshnessExpiresAt DateTime?
+  confidence         Float?
+  reviewedBy         String?
+  isDemonstration    Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+// Contradictions and Corrections Dispute Queue
+model Dispute {
+  id          String   @id @default(uuid())
+  retailerId  String
+  retailer    Retailer @relation(fields: [retailerId], references: [id], onDelete: Cascade)
+  filedBy     String // email/contact of submitter
+  fieldName   String // e.g. "address", "phone", "hours", "licenseNumber"
+  oldValue    String?
+  newValue    String
+  evidenceUrl String
+  reason      String   @default("Legacy submission (reason not recorded)")
+  status      String   @default("PENDING") // PENDING, RESOLVED, REJECTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([retailerId, status, fieldName])
+  @@index([status, createdAt])
+}
+
+// Staging table for dry-run ingestion of DC ABCA Feed data
+model StagingABCARetailer {
+  id            String   @id @default(uuid())
+  tradeName     String
+  licenseNumber String   @unique
+  address       String?
+  status        String?
+  rawJson       String?  // Store full CSV row as JSON string for review
+  ingestedAt    DateTime @default(now())
+
+  @@index([licenseNumber])
+  @@index([status])
+}

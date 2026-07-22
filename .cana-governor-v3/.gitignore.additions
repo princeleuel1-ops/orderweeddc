@@ -1,0 +1,5 @@
+# CANA Governor runtime and secrets
+.governor/
+*.secrets.clixml
+__pycache__/
+*.pyc

@@ -1,0 +1,16 @@
+{
+  "name": "orderweeddc",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/ai"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint -w apps/web",
+    "check": "npm run lint -w apps/web"
+  }
+}

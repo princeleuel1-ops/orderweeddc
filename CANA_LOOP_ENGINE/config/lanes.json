@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "lanes": [
+    {
+      "id": 1,
+      "name": "strategy",
+      "agent": "cana-strategist",
+      "prompt": "strategy.md",
+      "primary_model": "cana_lane_1/tencent/hy3:free",
+      "fallback_models": ["cana_lane_1/openrouter/free"],
+      "secret_reference": "CANA_LANE_1_API_KEY",
+      "variant": "high",
+      "context_budget_tokens": 65536
+    },
+    {
+      "id": 2,
+      "name": "truth",
+      "agent": "cana-truth",
+      "prompt": "truth.md",
+      "primary_model": "cana_lane_2/tencent/hy3:free",
+      "fallback_models": ["cana_lane_2/openrouter/free"],
+      "secret_reference": "CANA_LANE_2_API_KEY",
+      "variant": "high",
+      "context_budget_tokens": 65536
+    },
+    {
+      "id": 3,
+      "name": "implementation",
+      "agent": "cana-builder",
+      "prompt": "implementation.md",
+      "primary_model": "cana_lane_3/tencent/hy3:free",
+      "fallback_models": ["cana_lane_3/openrouter/free"],
+      "secret_reference": "CANA_LANE_3_API_KEY",
+      "variant": "high",
+      "context_budget_tokens": 98304
+    },
+    {
+      "id": 4,
+      "name": "verification",
+      "agent": "cana-verifier",
+      "prompt": "verification.md",
+      "primary_model": "cana_lane_4/tencent/hy3:free",
+      "fallback_models": ["cana_lane_4/openrouter/free"],
+      "secret_reference": "CANA_LANE_4_API_KEY",
+      "variant": "high",
+      "context_budget_tokens": 65536
+    },
+    {
+      "id": 5,
+      "name": "release_judge",
+      "agent": "cana-judge",
+      "prompt": "release-judge.md",
+      "primary_model": "cana_lane_5/tencent/hy3:free",
+      "fallback_models": ["cana_lane_5/openrouter/free"],
+      "secret_reference": "CANA_LANE_5_API_KEY",
+      "variant": "high",
+      "context_budget_tokens": 49152
+    }
+  ]
+}

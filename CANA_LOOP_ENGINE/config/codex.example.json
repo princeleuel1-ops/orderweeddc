@@ -1,0 +1,26 @@
+{
+  "enabled": false,
+  "executable": "codex",
+  "model": null,
+  "reasoning_effort": "high",
+  "approval_policy": "never",
+  "modifying_sandbox": "workspace-write",
+  "readonly_sandbox": "read-only",
+  "job_timeout_seconds": 1800,
+  "verification_timeout_seconds": 900,
+  "max_output_bytes": 2097152,
+  "lease_seconds": 2100,
+  "maximum_attempts": 3,
+  "daily_job_ceiling": 0,
+  "maximum_pending_builder_missions": 20,
+  "selection_contract_failure_threshold": 3,
+  "usage_cooldown_seconds": 3600,
+  "configuration_cooldown_seconds": 900,
+  "targeted_verification_commands": [
+    ["npm", "test", "--workspace", "apps/web"],
+    ["git", "diff", "--check"]
+  ],
+  "readonly_verification_commands": [
+    ["git", "diff", "--check"]
+  ]
+}
