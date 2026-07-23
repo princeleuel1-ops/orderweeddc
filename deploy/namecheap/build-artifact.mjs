@@ -34,6 +34,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { assertReleaseReproducible } from './release-preflight.mjs';
 
 const repoRoot = process.cwd();
 const webRoot = path.join(repoRoot, 'apps/web');
@@ -82,6 +83,20 @@ async function httpCode(port, hostHeader, pathname) {
 const gitSha = capture('git rev-parse HEAD', { cwd: repoRoot });
 const shortSha = gitSha.slice(0, 7);
 const workingTree = capture('git status --porcelain', { cwd: repoRoot });
+
+// FAIL CLOSED: never build an unreachable or dirty commit into a deployable
+// artifact (production incident 2026-07-23 — the live orderweeddc-c1e8ac7 came
+// from an unpushed SHA). See release-preflight.mjs. Override for throwaway local
+// builds only with ALLOW_DIRTY=1; the remote is GIT_REMOTE (default: origin).
+const releaseRepro = assertReleaseReproducible({
+  capture,
+  repoRoot,
+  remote: process.env.GIT_REMOTE || 'origin',
+  workingTree,
+  gitSha,
+  allowDirty: process.env.ALLOW_DIRTY === '1',
+});
+
 const artifactName = `orderweeddc-${shortSha}`;
 const distRoot = path.join(repoRoot, 'dist/namecheap');
 const artifactRoot = path.join(distRoot, artifactName);
@@ -252,6 +267,13 @@ for (const file of serverJsFiles) {
 checks[`no unresolved hashed externals (${serverJsFiles.length} server files scanned)`] =
   unresolvedHits.length === 0;
 
+// Source-map exclusion: standalone server output must not ship .map files
+// (dead weight + source disclosure). Static client maps are handled by Next.
+const serverMapFiles = walkFiles(path.join(artifactRoot, '.next/server')).filter(
+  (file) => file.endsWith('.map'),
+);
+checks['no server source maps in artifact'] = serverMapFiles.length === 0;
+
 function reportChecks() {
   console.log('\nArtifact verification:');
   for (const [name, ok] of Object.entries(checks)) {
@@ -276,6 +298,7 @@ function writeReceipt(extra = {}) {
   const receipt = {
     artifact: artifactName,
     gitSha,
+    releaseRepro,
     workingTree: workingTree === '' ? 'clean' : workingTree.split('\n'),
     builtAt: new Date().toISOString(),
     nodeVersion: process.version,
