@@ -80,17 +80,17 @@ sh ~/uploads/deploy.sh orderweeddc-<shortsha>.tar.gz
 ```
 (Upload `deploy/namecheap/deploy.sh`, `rollback.sh`, `restart.sh` to `~/uploads/` once.)
 
-**2.5 — Initialize the database (FIRST deploy only):**
+**2.5 — Bootstrap the database (safe + repeatable):**
 ```
-cd ~/apps/orderweeddc/current
-N=/opt/alt/alt-nodejs20/root/usr/bin/node
-export PRISMA_QUERY_ENGINE_LIBRARY=$PWD/node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node
-DATABASE_URL=file:$HOME/orderweeddc-data/prod.db $N scripts/init-production-db.mjs
-DATABASE_URL=file:$HOME/orderweeddc-data/prod.db $N scripts/seed-abca-retailers.mjs
+cd ~/apps/orderweeddc/current && sh bootstrap-production-db.sh
 ```
-`init-production-db` creates only the canonical brand — **zero demo data**.
-`seed-abca-retailers` ingests the 74 licensed DC retailers as
-`AWAITING_VERIFICATION` with their public source. Both are idempotent.
+The bootstrap script (shipped inside the artifact) installs the build-verified
+schema-template database ONLY when `prod.db` is absent, zero-byte, or provably
+schema-empty; any existing nonempty database is backed up with a timestamp and
+NEVER overwritten (hard-stop if its schema is unrecognized). It then runs the
+idempotent canonical-brand init and the real ABCA retailer seed
+(`AWAITING_VERIFICATION`, zero demo data) and prints a JSON verification
+receipt. Rerunning it is safe.
 
 **2.6 — Point cPanel at the app & restart:** in Setup Node.js App, confirm the
 env vars (§3), then **Restart**. Or from Terminal:

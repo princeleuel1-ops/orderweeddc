@@ -97,11 +97,47 @@ fs.mkdirSync(path.join(artifactRoot, 'scripts'), { recursive: true });
 for (const script of [
   'scripts/init-production-db.mjs',
   'scripts/seed-abca-retailers.mjs',
+  'scripts/db-inspect.mjs',
   'scripts/restore-brand-assets.mjs',
   'scripts/brand-assets.b64.json',
 ]) {
   fs.copyFileSync(path.join(webRoot, script), path.join(artifactRoot, script));
 }
+for (const opsScript of [
+  'bootstrap-production-db.sh',
+  'restart.sh',
+  'rollback.sh',
+]) {
+  fs.copyFileSync(
+    path.join(repoRoot, 'deploy/namecheap', opsScript),
+    path.join(artifactRoot, opsScript),
+  );
+}
+
+// Schema-template database: apply the EXACT committed Prisma schema to a
+// fresh temporary SQLite file off-server (shared hosting must never run
+// prisma db push). No data of any kind — schema only. The repo has no
+// migration history yet, so db push in this controlled build is the
+// sanctioned path; the first committed migration can replace it later.
+const templateDir = path.join(artifactRoot, 'bootstrap');
+fs.mkdirSync(templateDir, { recursive: true });
+const templateDb = path.join(templateDir, 'orderweeddc-schema-template.db');
+fs.rmSync(templateDb, { force: true });
+run(`npx prisma db push --skip-generate --schema prisma/schema.prisma`, {
+  cwd: webRoot,
+  env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
+});
+const templateInventory = JSON.parse(
+  execSync(`node scripts/db-inspect.mjs`, {
+    cwd: webRoot,
+    env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
+  })
+    .toString()
+    .trim(),
+);
+const templateSha256 = createHash('sha256')
+  .update(fs.readFileSync(templateDb))
+  .digest('hex');
 fs.mkdirSync(path.join(artifactRoot, 'prisma'), { recursive: true });
 fs.copyFileSync(
   path.join(webRoot, 'prisma/schema.prisma'),
@@ -157,6 +193,17 @@ if (process.env.SERVER_OPENSSL === '1.1') {
   checks['rhel-openssl-1.1.x engine present (probe: OpenSSL 1.1.1k)'] =
     engineFiles.some((file) => file.includes('rhel-openssl-1.1.x'));
 }
+checks['schema template present'] = fs.existsSync(templateDb);
+checks['schema template has core tables'] =
+  templateInventory.coreTablesPresent === true &&
+  templateInventory.tableCount > 10;
+checks['schema template is data-free'] =
+  (templateInventory.counts?.organizations ?? 0) === 0 &&
+  (templateInventory.counts?.brands ?? 0) === 0 &&
+  (templateInventory.counts?.retailers ?? 0) === 0;
+checks['bootstrap script present'] = fs.existsSync(
+  path.join(artifactRoot, 'bootstrap-production-db.sh'),
+);
 
 const failed = Object.entries(checks).filter(([, ok]) => !ok);
 console.log('\nArtifact verification:');
@@ -178,6 +225,12 @@ const receipt = {
   nextOutput: 'standalone',
   prismaEngines: engineFiles,
   serverFitPruned: pruned,
+  schemaTemplate: {
+    file: 'bootstrap/orderweeddc-schema-template.db',
+    sha256: templateSha256,
+    tableCount: templateInventory.tableCount,
+    tables: templateInventory.tables,
+  },
   checks,
 };
 fs.writeFileSync(
