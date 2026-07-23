@@ -18,6 +18,22 @@ if (!process.env.HOSTNAME) {
   process.env.HOSTNAME = '127.0.0.1';
 }
 
+// CageFS hides /etc/os-release from CloudLinux shared accounts, so Prisma's
+// platform detector guesses "debian" while the host is really RHEL-family
+// (probe 2026-07-23: OpenSSL 1.1.1k FIPS). Point Prisma directly at the
+// bundled engine unless the operator overrides it.
+if (!process.env.PRISMA_QUERY_ENGINE_LIBRARY) {
+  const path = require('node:path');
+  const fs = require('node:fs');
+  const bundledEngine = path.join(
+    __dirname,
+    'node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node',
+  );
+  if (fs.existsSync(bundledEngine)) {
+    process.env.PRISMA_QUERY_ENGINE_LIBRARY = bundledEngine;
+  }
+}
+
 // Fail loudly and early if the operator forgot the database location —
 // a directory site that silently starts without its database is worse
 // than one that refuses to start.

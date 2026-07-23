@@ -80,15 +80,17 @@ sh ~/uploads/deploy.sh orderweeddc-<shortsha>.tar.gz
 ```
 (Upload `deploy/namecheap/deploy.sh`, `rollback.sh`, `restart.sh` to `~/uploads/` once.)
 
-**2.5 — Initialize the database (FIRST deploy only):**
+**2.5 — Bootstrap the database (safe + repeatable):**
 ```
-cd ~/apps/orderweeddc/current
-DATABASE_URL=file:$HOME/orderweeddc-data/prod.db node scripts/init-production-db.mjs
-DATABASE_URL=file:$HOME/orderweeddc-data/prod.db node scripts/seed-abca-retailers.mjs
+cd ~/apps/orderweeddc/current && sh bootstrap-production-db.sh
 ```
-`init-production-db` creates only the canonical brand — **zero demo data**.
-`seed-abca-retailers` ingests the 74 licensed DC retailers as
-`AWAITING_VERIFICATION` with their public source. Both are idempotent.
+The bootstrap script (shipped inside the artifact) installs the build-verified
+schema-template database ONLY when `prod.db` is absent, zero-byte, or provably
+schema-empty; any existing nonempty database is backed up with a timestamp and
+NEVER overwritten (hard-stop if its schema is unrecognized). It then runs the
+idempotent canonical-brand init and the real ABCA retailer seed
+(`AWAITING_VERIFICATION`, zero demo data) and prints a JSON verification
+receipt. Rerunning it is safe.
 
 **2.6 — Point cPanel at the app & restart:** in Setup Node.js App, confirm the
 env vars (§3), then **Restart**. Or from Terminal:
@@ -110,6 +112,7 @@ Set in **Setup Node.js App → Environment variables**. Template:
 | `DATABASE_URL` | `file:/home/<cpanel-user>/orderweeddc-data/prod.db` | you (path only, not a secret) |
 | `NODE_ENV` | `production` | fixed |
 | `CANA_ALLOWED_HOSTS` | *(optional)* extra hostnames, comma-separated | you |
+| `PRISMA_QUERY_ENGINE_LIBRARY` | `/home/<cpanel-user>/apps/orderweeddc/current/node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node` | fixed path (CageFS hides os-release, so Prisma's auto-detection guesses debian; newer artifacts also self-set this in app.js) |
 
 `orderweeddc.com` and `www.orderweeddc.com` are **built-in** allowed hosts — no
 env var needed. `GEMINI_API_KEY` is **not** a production runtime variable; the
@@ -121,15 +124,24 @@ operator-side ad-creative tooling, per-run, and never stored on the server.
 ## 4. Build a new artifact (off-server, on your machine or CI)
 
 ```
-git checkout deploy/namecheap-production && git pull
-npm ci
-node deploy/namecheap/build-artifact.mjs
+git pull
+SERVER_OPENSSL=1.1 CLEAN_INSTALL=1 node deploy/namecheap/build-artifact.mjs
 # → dist/namecheap/orderweeddc-<shortsha>.tar.gz  (+ .sha256, + receipt.json)
 ```
-The builder restores brand assets from base64, runs `prisma generate` with RHEL
-engines, produces a `standalone` build, assembles `server.js` + `app.js` +
-`.next/static` + `public` + runtime `node_modules`, verifies 7 hard-stop checks,
-and writes a signed `receipt.json`.
+The builder is **webpack-only** (`next build --webpack` — Turbopack standalone
+is banned for this target; see `deploy/namecheap/PRODUCTION_RELEASE_GATES.md`),
+runs `npm ci` from the exact lockfile, restores brand assets, generates the
+Prisma client with RHEL engines, scans every compiled server file for
+unresolved hashed externals, bakes the schema-template database, and — before
+keeping any tarball — proves it in TRUE ISOLATION (extracted outside the
+repository, no parent node_modules, copied test DB, full health/route/restart/
+rollback matrix). Results land in `receipt.json` (`bundler`, versions, scan,
+isolated-test steps).
+
+**Preferred owner deploy path** (all gates + auto-rollback in one command):
+```
+sh ~/uploads/verify-and-deploy.sh "<artifact-url>" "<artifact-file.tar.gz>" "<expected-sha256>"
+```
 
 ---
 

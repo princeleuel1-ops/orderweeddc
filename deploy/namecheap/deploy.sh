@@ -41,10 +41,17 @@ fi
 mv "$RELEASE_DIR" "$APP_HOME/current"
 rmdir "$STAGE" 2>/dev/null || rm -rf "$STAGE"
 
+# Stable command paths: install wrappers at $APP_HOME so
+# `sh ~/apps/orderweeddc/restart.sh` and `sh ~/apps/orderweeddc/rollback.sh`
+# always work regardless of release layout (command-path consistency law).
+cp "$APP_HOME/current/restart.sh" "$APP_HOME/restart.sh" 2>/dev/null || true
+cp "$APP_HOME/current/rollback.sh" "$APP_HOME/rollback.sh" 2>/dev/null || true
+
 # Passenger restart signal.
 touch "$APP_HOME/current/tmp/restart.txt"
 
-echo "Deployed. If this is the FIRST deploy, initialize the database:"
-echo "  cd $APP_HOME/current && DATABASE_URL=file:$HOME/orderweeddc-data/prod.db \\"
-echo "    node scripts/init-production-db.mjs && node scripts/seed-abca-retailers.mjs"
-echo "Then verify:  curl -s https://orderweeddc.com/api/health"
+echo "Deployed. FIRST deploy only — bootstrap the database (safe, guarded):"
+echo "  cd $APP_HOME/current && sh bootstrap-production-db.sh"
+echo "Restart:   sh $APP_HOME/restart.sh"
+echo "Rollback:  sh $APP_HOME/rollback.sh"
+echo "Verify:    curl -s https://orderweeddc.com/api/health"
