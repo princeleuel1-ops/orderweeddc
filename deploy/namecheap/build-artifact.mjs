@@ -158,6 +158,10 @@ const pruned = [];
 if (process.env.SERVER_OPENSSL === '1.1') {
   const pruneTargets = [
     'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+    // debian-1.1 exists as a belt-and-braces generate target for detection
+    // fallbacks, but this server pins the rhel-1.1 engine explicitly
+    // (app.js + bootstrap script), so it is dead bytes in the artifact.
+    'node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node',
     'node_modules/@img/sharp-libvips-linuxmusl-x64',
     'node_modules/@img/sharp-linuxmusl-x64',
   ];
