@@ -1,0 +1,105 @@
+{
+  "$schema": "internal:failure-signature/v1",
+  "updated": "2026-07-23",
+  "signatures": [
+    {
+      "signature": "curl: (6) Could not resolve host",
+      "layer": "dns",
+      "confidence": "PROVEN when reproducible from a second resolver",
+      "safeDiagnostic": "Test origin directly with curl --resolve domain:443:ORIGIN_IP; check public resolution separately (dig/other network). Report ORIGIN_HEALTHY_PUBLIC_DNS_PENDING when they diverge.",
+      "prohibitedAction": "Any application, artifact, or database change; treating --resolve success as public-DNS health.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Only if nameserver/DNS records need changing at the registrar."
+    },
+    {
+      "signature": "HTTP 404 with concatenated path such as /api/healthcurl",
+      "layer": "client-command",
+      "confidence": "PROVEN by inspecting the echoed URL",
+      "safeDiagnostic": "Re-issue as a single-line command or heredoc; validate the URL before execution; use curl --fail-with-body -o file -w %{http_code}.",
+      "prohibitedAction": "Diagnosing the application from a malformed request; asking the owner for more diagnostics.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Re-paste one clean block."
+    },
+    {
+      "signature": "HTTP 500 with empty or generic body from /api/health",
+      "layer": "application-startup OR route-execution (NOT automatically database)",
+      "confidence": "HYPOTHESIS until stderr captured",
+      "safeDiagnostic": "1) Read-only DB check with exact production DATABASE_URL + bundled engine (scripts/db-inspect.mjs). 2) Direct app start with captured stderr in an isolated shell. Narrow the layer before any change.",
+      "prohibitedAction": "Bootstrap, seed, migrate, or replace the database; config guesses presented as fixes.",
+      "rollbackTrigger": "If a fresh deploy caused it: yes, code-only rollback.",
+      "ownerActionRequired": "No — automation exhausts safe diagnostics first."
+    },
+    {
+      "signature": "Cannot find module '@prisma/client-<hex>' (Failed to load external module)",
+      "layer": "compiled-artifact (Turbopack hashed external)",
+      "confidence": "PROVEN (incident 2026-07-23)",
+      "safeDiagnostic": "Confirm via receipt.json bundler field and the unresolved-external scan. Rebuild with next build --webpack; re-prove in true isolation.",
+      "prohibitedAction": "npm install on shared hosting; symlink hacks as permanent fix; touching the database.",
+      "rollbackTrigger": "Yes — roll back to last-known-good code release.",
+      "ownerActionRequired": "Replace code release with the fixed artifact (one block)."
+    },
+    {
+      "signature": "Prisma Client could not locate the Query Engine / generated for X but required Y",
+      "layer": "prisma-engine (platform detection; CageFS hides os-release)",
+      "confidence": "PROVEN (incident 2026-07-23)",
+      "safeDiagnostic": "Verify the engine file exists in node_modules/.prisma/client; pin PRISMA_QUERY_ENGINE_LIBRARY to the rhel-openssl-1.1.x engine (app.js self-sets it).",
+      "prohibitedAction": "prisma generate on the server; database changes.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Only if the env var must be added in cPanel UI."
+    },
+    {
+      "signature": "The table main.<Model> does not exist in the current database",
+      "layer": "database-schema (never data corruption by itself)",
+      "confidence": "PROVEN when db-inspect shows tableCount 0",
+      "safeDiagnostic": "Read-only scripts/db-inspect.mjs. If schema-empty AND backed up: install the build-verified schema template via bootstrap-production-db.sh. If nonempty with unknown tables: HARD STOP.",
+      "prohibitedAction": "prisma db push/migrate on the server; --force-reset; deleting a nonempty database.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Run bootstrap-production-db.sh (first deploy only)."
+    },
+    {
+      "signature": "database file missing or zero bytes at $DATA_DIR/prod.db",
+      "layer": "database-file",
+      "confidence": "PROVEN by stat",
+      "safeDiagnostic": "First deploy: bootstrap installs the schema template (with backup rules). Established production: HARD STOP — locate backups (prod.db.bak-*), never regenerate silently.",
+      "prohibitedAction": "Silent regeneration over a previously-populated production path.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Confirm whether this is a first deploy."
+    },
+    {
+      "signature": "restart script path not found (sh: restart.sh: No such file)",
+      "layer": "runbook/command-path",
+      "confidence": "PROVEN by ls",
+      "safeDiagnostic": "Stable wrappers live at ~/apps/orderweeddc/{restart,rollback}.sh (installed by deploy.sh); release-local copies at current/. Command-path consistency test guards agreement.",
+      "prohibitedAction": "Publishing further paths without executing them against the artifact layout.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Use the wrapper path."
+    },
+    {
+      "signature": "cPanel Terminal session ended / websocket dropped",
+      "layer": "control-plane transport (NOT the application)",
+      "confidence": "PROVEN when /api/health still answers",
+      "safeDiagnostic": "Check application health independently via the health endpoint before any conclusion.",
+      "prohibitedAction": "Declaring an outage; restarting the app reflexively.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Reopen Terminal if more commands are needed."
+    },
+    {
+      "signature": "HTTP 502/503 with Server: Pingora (or provider-wide 502s)",
+      "layer": "provider-edge (Namecheap proxy tier)",
+      "confidence": "LIKELY provider-side when reproducible on cp.namecheaphosting.com",
+      "safeDiagnostic": "Probe Namecheap's own hosting domains; test origin via --resolve. If provider-wide: wait / open a Namecheap ticket.",
+      "prohibitedAction": "Application or artifact changes to fix a host-side outage.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Namecheap support ticket if persistent."
+    },
+    {
+      "signature": "TLS handshake failure / certificate invalid on apex or www",
+      "layer": "tls-issuance (AutoSSL/SSL-proxy)",
+      "confidence": "PROVEN via openssl s_client / curl -v",
+      "safeDiagnostic": "Check cPanel SSL/TLS Status; trigger AutoSSL; verify DNS points at the hosting; retry via http origin check meanwhile.",
+      "prohibitedAction": "Disabling HSTS or shipping mixed-content workarounds.",
+      "rollbackTrigger": false,
+      "ownerActionRequired": "Trigger/verify AutoSSL in cPanel."
+    }
+  ]
+}
