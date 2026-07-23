@@ -1,11 +1,21 @@
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 export const DEFAULT_TENANT_THEME = Object.freeze({
-  primary: '#1EC36A',
-  secondary: '#0D8343',
-  background: '#0B0F12',
-  surface: '#141A1E',
-  text: '#E2E8F0',
+  primary: '#0e9f5a',
+  secondary: '#0a7443',
+  background: '#f6faf7',
+  surface: '#ffffff',
+  text: '#0d1f18',
+});
+
+// Platform-level derived tones shared by every tenant surface. Kept out of
+// per-brand customization so contrast and evidence-label legibility stay
+// guaranteed regardless of tenant palette choices.
+export const PLATFORM_TONES = Object.freeze({
+  raised: '#edf4ee',
+  border: 'rgba(13, 31, 24, 0.10)',
+  muted: '#54685e',
+  gold: '#b9840c',
 });
 
 function acceptedHexColor(value, fallback) {

@@ -14,8 +14,6 @@ async function run() {
   const csvPath = path.join(__dirname, 'real_abca_feed.csv');
   const fileContent = fs.readFileSync(csvPath, 'utf8');
   const lines = fileContent.trim().split('\n');
-  const headers = lines[0].split(',');
-  
   console.log(`Found ${lines.length - 1} records in the raw CSV.`);
 
   let staged = 0;
@@ -74,7 +72,7 @@ async function run() {
     let raw;
     try {
       raw = JSON.parse(record.rawJson || '{}');
-    } catch (e) {
+    } catch {
       raw = {};
     }
 

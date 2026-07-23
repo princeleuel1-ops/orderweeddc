@@ -1,0 +1,12 @@
+README.md
+SKILL.md
+checklists/failure-drills.md
+checklists/half-life-audit.md
+examples/autonomous-website-governor.md
+examples/health-triage-loop.md
+manifest.txt
+references/source-notes.md
+scripts/validate_architecture.py
+templates/architecture-contract.json
+templates/reviewer-report.md
+templates/run-record.json

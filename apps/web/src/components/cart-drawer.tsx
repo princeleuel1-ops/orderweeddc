@@ -39,11 +39,11 @@ export default function CartDrawer() {
       {/* Floating Cart Trigger Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-black text-white font-extrabold text-xs px-4 py-3 rounded-full shadow-2xl hover:bg-slate-800 transition-all flex items-center gap-2 border border-brand-border cursor-pointer active:scale-95"
+        className="fixed bottom-6 right-6 z-40 bg-brand-primary text-white font-extrabold text-xs px-4 py-3 rounded-full shadow-2xl hover:brightness-110 transition-all flex items-center gap-2 border border-brand-border cursor-pointer active:scale-95"
       >
         <span>🛒</span>
         <span>Order Staging</span>
-        <span className="bg-white text-black font-black text-[10px] px-2 py-0.5 rounded-full">
+        <span className="bg-white text-brand-primary font-black text-[10px] px-2 py-0.5 rounded-full">
           {items.reduce((sum, i) => sum + i.quantity, 0)}
         </span>
       </button>
@@ -55,14 +55,14 @@ export default function CartDrawer() {
             {/* Drawer Header */}
             <div className="flex items-center justify-between border-b border-brand-border pb-4">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-brand-background border border-brand-border px-2 py-0.5 rounded">
+                <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted bg-brand-background border border-brand-border px-2 py-0.5 rounded">
                   Order Staging
                 </span>
                 <h2 className="text-xl font-extrabold text-brand-text mt-1">Your Shopping Cart</h2>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-slate-500 hover:text-brand-text font-bold text-lg p-1"
+                className="text-brand-muted hover:text-brand-text font-bold text-lg p-1"
               >
                 ✕
               </button>
@@ -71,7 +71,7 @@ export default function CartDrawer() {
             {/* Cart Items List */}
             <div className="flex-grow overflow-y-auto py-6 space-y-4">
               {items.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 space-y-2">
+                <div className="text-center py-12 text-brand-muted space-y-2">
                   <p className="font-bold text-brand-text text-sm">Your order staging cart is empty.</p>
                   <p className="text-xs max-w-xs mx-auto">
                     Browse dispensary profiles and add evidence-verified products to stage your order.
@@ -85,27 +85,27 @@ export default function CartDrawer() {
                   >
                     <div className="space-y-1">
                       <h4 className="text-xs font-bold text-brand-text">{item.name}</h4>
-                      <p className="text-[10px] text-slate-500">{item.retailerName}</p>
+                      <p className="text-[10px] text-brand-muted">{item.retailerName}</p>
                       <div className="text-xs font-black text-brand-text">${(item.price * item.quantity).toFixed(2)}</div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQuantity(item.id, -1)}
-                        className="w-6 h-6 rounded border border-brand-border bg-brand-surface text-xs font-bold flex items-center justify-center hover:bg-black hover:text-white"
+                        className="w-6 h-6 rounded border border-brand-border bg-brand-surface text-xs font-bold flex items-center justify-center hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-colors"
                       >
                         -
                       </button>
                       <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.id, 1)}
-                        className="w-6 h-6 rounded border border-brand-border bg-brand-surface text-xs font-bold flex items-center justify-center hover:bg-black hover:text-white"
+                        className="w-6 h-6 rounded border border-brand-border bg-brand-surface text-xs font-bold flex items-center justify-center hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-colors"
                       >
                         +
                       </button>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="text-slate-400 hover:text-red-500 text-xs ml-2"
+                        className="text-brand-muted hover:text-red-600 text-xs ml-2"
                       >
                         🗑️
                       </button>
@@ -121,12 +121,12 @@ export default function CartDrawer() {
                 <span>Subtotal</span>
                 <span>${subtotal.toFixed(2)}</span>
               </div>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[10px] text-brand-muted">
                 Order staging calculates estimated totals. Actual availability and licensure are verified directly with retailer primary sources.
               </p>
               <button
                 disabled={items.length === 0}
-                className="w-full bg-black text-white font-extrabold text-xs py-3 px-4 rounded-md hover:bg-slate-800 disabled:opacity-50 transition-all cursor-pointer shadow"
+                className="w-full bg-brand-primary text-white font-extrabold text-xs py-3 px-4 rounded-md hover:brightness-110 disabled:opacity-50 transition-all cursor-pointer shadow"
               >
                 Proceed to Staged Handoff →
               </button>

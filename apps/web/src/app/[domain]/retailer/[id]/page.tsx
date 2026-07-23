@@ -12,6 +12,14 @@ import {
 } from '@/lib/directory-search.mjs';
 import { safePublicWebsiteUrl } from '@/lib/handoff.mjs';
 import { tenantRetailerWhere } from '@/lib/tenant-retailer.mjs';
+import { requestOrigin } from '@/lib/server-request-url';
+import {
+  breadcrumbJsonLd,
+  jsonLdScriptProps,
+  retailerJsonLd,
+} from '@/lib/structured-data.mjs';
+import { clampSeoText } from '@/lib/seo-meta.mjs';
+import { BadgeCheck, MapPin, Phone, Clock, Globe, Mail, ShieldCheck, Star, FileEdit } from 'lucide-react';
 import {
   RETAILER_DEAL_PAGE_SIZE,
   RETAILER_MENU_PAGE_SIZE,
@@ -75,7 +83,7 @@ function RetailerPagination({
       ) : (
         <span />
       )}
-      <span className="text-slate-500">
+      <span className="text-brand-muted">
         Page {currentPage} of {totalPages}
       </span>
       {currentPage < totalPages ? (
@@ -123,17 +131,37 @@ export async function generateMetadata({ params }: Props) {
   }
 
   const indexable = isPubliclyVerified(retailer);
+  const title = clampSeoText(`${retailer.name} — Menu, Deals & Verified Info`, 65);
+  const description = retailer.isDemonstration
+    ? 'A visibly labeled demonstration retailer record with synthetic menu and offer data.'
+    : clampSeoText(
+        `${retailer.name} in Washington, D.C.: menu, active deals, license status, and contact details — with explicit source and freshness labels.`,
+        160,
+      );
   return {
-    title: `${retailer.name} Data & Menu | ${brand.name}`,
-    description: retailer.isDemonstration
-      ? 'A visibly labeled demonstration retailer record with synthetic menu and offer data.'
-      : `Source, verification, menu, and contact information for ${retailer.name}.`,
+    title,
+    description,
     robots: {
       index: indexable,
       follow: indexable,
     },
     alternates: {
       canonical: `/retailer/${encodeURIComponent(id)}`,
+    },
+    openGraph: {
+      title,
+      description,
+      siteName: brand.name,
+      type: 'website',
+      locale: 'en_US',
+      url: `/retailer/${encodeURIComponent(id)}`,
+      images: [{ url: '/og-default.jpg', width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['/og-default.jpg'],
     },
   };
 }
@@ -221,38 +249,41 @@ export default async function RetailerDetailPage({
     categories[cat].push(entry);
   });
 
-  const schemaLd = {
-    '@context': 'https://schema.org',
-    '@type': 'MedicalBusiness',
-    name: retailer.name,
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: retailer.address,
-      addressLocality: retailer.city,
-      addressRegion: retailer.state,
-      postalCode: retailer.zip,
-      addressCountry: 'US',
-    },
-    telephone: retailer.phone || undefined,
-    url: websiteUrl || undefined,
-  };
+  // Truth boundary: structured data is only emitted for records that passed
+  // public verification, so machines never ingest synthetic business facts.
+  const origin = await requestOrigin();
+  const storeLd = retailerJsonLd({ retailer, origin: origin.origin });
+  const breadcrumbLd = breadcrumbJsonLd([
+    { name: 'Home', url: `${origin.origin}/` },
+    { name: 'Retailers', url: `${origin.origin}/` },
+    { name: retailer.name, url: `${origin.origin}/retailer/${retailer.id}` },
+  ]);
 
   return (
     <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 animate-fade-in space-y-8 flex-grow">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaLd) }}
-      />
+      {storeLd && <script {...jsonLdScriptProps(storeLd)} />}
+      {breadcrumbLd && <script {...jsonLdScriptProps(breadcrumbLd)} />}
       
       {/* Back button */}
       <div>
-        <Link href="/" className="text-xs font-semibold text-slate-600 hover:text-brand-primary transition-colors flex items-center">
+        <Link href="/" className="text-xs font-semibold text-brand-muted hover:text-brand-primary transition-colors flex items-center">
           ← Back to directory
         </Link>
       </div>
 
       {/* Header Profile Section */}
-      <div className="border border-brand-border bg-brand-surface rounded-lg p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="record-card rounded-2xl overflow-hidden">
+        {/* Banner artwork */}
+        <img
+          src={retailer.type === 'storefront' ? '/art/retailer-storefront.jpg' : '/art/retailer-delivery.jpg'}
+          alt="Illustrative artwork — not a photo of this business"
+          width={720}
+          height={480}
+          className="h-36 w-full rounded-xl object-cover border border-brand-border"
+          loading="lazy"
+        />
+        <p className="mt-1 px-6 text-[10px] text-brand-muted/70">Illustrative artwork — not a photo of this business.</p>
+        <div className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-text">{retailer.name}</h1>
@@ -271,30 +302,30 @@ export default async function RetailerDetailPage({
             </div>
           </div>
 
-          <p className="text-sm text-slate-600">
-            📍 {retailer.address}, {retailer.city}, {retailer.state} {retailer.zip}
+          <p className="text-sm text-brand-muted">
+            <MapPin size={13} className="mr-1 inline text-brand-primary/70" aria-hidden="true" /> {retailer.address}, {retailer.city}, {retailer.state} {retailer.zip}
           </p>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-brand-muted">
             {retailer.phone && (
-              <div>📞 {retailer.phone}</div>
+              <div className="inline-flex items-center gap-1"><Phone size={11} aria-hidden="true" /> {retailer.phone}</div>
             )}
             {retailer.hours && (
               <div className="flex items-center gap-x-4">
                 {retailer.phone && <span>•</span>}
-                <div>🕒 {retailer.hours}</div>
+                <div className="inline-flex items-center gap-1"><Clock size={11} aria-hidden="true" /> {retailer.hours}</div>
               </div>
             )}
             {websiteUrl && (
               <div className="flex items-center gap-x-4">
                 {(retailer.phone || retailer.hours) && <span>•</span>}
-                <div>🌐 <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary underline transition-colors">{retailer.website}</a></div>
+                <div className="inline-flex items-center gap-1"><Globe size={11} aria-hidden="true" /> <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary underline transition-colors">{retailer.website}</a></div>
               </div>
             )}
             {retailer.email && (
               <div className="flex items-center gap-x-4">
                 {(retailer.phone || retailer.hours || retailer.website) && <span>•</span>}
-                <div>✉️ <a href={`mailto:${retailer.email}`} className="hover:text-brand-primary underline transition-colors">{retailer.email}</a></div>
+                <div className="inline-flex items-center gap-1"><Mail size={11} aria-hidden="true" /> <a href={`mailto:${retailer.email}`} className="hover:text-brand-primary underline transition-colors">{retailer.email}</a></div>
               </div>
             )}
           </div>
@@ -309,16 +340,17 @@ export default async function RetailerDetailPage({
           >
             <button 
               type="submit"
-              className="w-full md:w-auto bg-black text-white font-extrabold text-sm px-6 py-3 rounded-md hover:bg-slate-800 active:scale-98 transition-all shadow-lg cursor-pointer"
+              className="w-full md:w-auto bg-brand-primary text-white font-extrabold text-sm px-6 py-3 rounded-lg hover:brightness-110 active:scale-98 transition-all shadow-md shadow-brand-primary/25 cursor-pointer"
             >
               Route to Retailer Menu / Contact →
             </button>
           </form>
         ) : (
-          <div className="w-full md:w-auto shrink-0 bg-brand-surface text-slate-500 border border-brand-border text-center font-bold text-xs px-6 py-3 rounded-md cursor-not-allowed select-none">
+          <div className="w-full md:w-auto shrink-0 bg-brand-surface text-brand-muted border border-brand-border text-center font-bold text-xs px-6 py-3 rounded-md cursor-not-allowed select-none">
             🔒 Handoff Locked ({retailer.isDemonstration ? 'Demonstration Record' : websiteUrl ? 'Awaiting Current Verification' : 'No Safe Public Website'})
           </div>
         )}
+        </div>
       </div>
 
       {/* Profile Columns */}
@@ -329,14 +361,14 @@ export default async function RetailerDetailPage({
           
           {/* Active Deals Banner */}
           {deals.length > 0 && (
-            <div className="border border-orange-500/20 bg-orange-500/5 rounded-lg p-5 space-y-3">
-              <h2 className="text-md font-bold text-orange-400 flex items-center">
+            <div className="border border-orange-500/30 bg-orange-500/10 rounded-lg p-5 space-y-3">
+              <h2 className="text-md font-bold text-orange-700 flex items-center">
                 🔥 Offers (check the data label before use)
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {deals.map((deal) => (
                   <div key={deal.id} className="bg-brand-surface border border-brand-border p-4 rounded-md space-y-1">
-                    <span className="text-xs font-black text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded">
+                    <span className="text-xs font-black text-orange-700 bg-orange-400/10 px-2 py-0.5 rounded">
                       {deal.isDemonstration ? 'DEMO OFFER — NOT REDEEMABLE' : deal.discount}
                     </span>
                     <DataStatusBadge
@@ -347,14 +379,14 @@ export default async function RetailerDetailPage({
                       compact
                     />
                     <h3 className="text-sm font-bold text-brand-text pt-1">{deal.title}</h3>
-                    <p className="text-xs text-slate-600">{deal.description}</p>
-                    <div className="text-[10px] text-slate-500 pt-2">
+                    <p className="text-xs text-brand-muted">{deal.description}</p>
+                    <div className="text-[10px] text-brand-muted pt-2">
                       Code: <span className="font-semibold text-brand-text">{deal.code || 'None'}</span> • Expires: {new Date(deal.expiryDate).toLocaleDateString()}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[10px] text-brand-muted">
                 {dealCount} evidence-eligible offer
                 {dealCount === 1 ? '' : 's'}.
               </p>
@@ -382,9 +414,9 @@ export default async function RetailerDetailPage({
                   type="text"
                   placeholder="Search products..."
                   defaultValue={typeof rawSearchParams.menuQuery === 'string' ? rawSearchParams.menuQuery : ''}
-                  className="bg-brand-background border border-brand-border text-brand-text px-3 py-1.5 rounded text-xs focus:border-black focus:outline-none transition-colors"
+                  className="bg-brand-background border border-brand-border text-brand-text px-3 py-1.5 rounded text-xs focus:border-brand-primary focus:outline-none transition-colors"
                 />
-                <button type="submit" className="bg-black text-white text-xs font-bold px-3.5 py-1.5 rounded hover:bg-slate-800 transition-colors cursor-pointer">
+                <button type="submit" className="bg-brand-primary text-white text-xs font-bold px-3.5 py-1.5 rounded hover:brightness-110 transition-colors cursor-pointer">
                   Search
                 </button>
               </form>
@@ -396,7 +428,7 @@ export default async function RetailerDetailPage({
                 <Link
                   key={cat}
                   href={`/retailer/${retailer.id}?menuQuery=${cat === 'All' ? '' : cat}`}
-                  className="text-[11px] font-extrabold px-3 py-1 rounded-full border border-brand-border bg-brand-surface hover:bg-black hover:text-white transition-all shadow-xs"
+                  className="text-[11px] font-extrabold px-3 py-1 rounded-full border border-brand-border bg-brand-surface text-brand-muted hover:border-brand-primary hover:text-brand-primary transition-all"
                 >
                   {cat === 'Flower' ? '🌱 Flower' : cat === 'Vapes' ? '💨 Vapes' : cat === 'Edibles' ? '🍬 Edibles' : cat === 'Concentrates' ? '🧴 Concentrates' : cat}
                 </Link>
@@ -404,14 +436,14 @@ export default async function RetailerDetailPage({
             </div>
 
             {Object.keys(categories).length === 0 ? (
-              <div className="border border-brand-border rounded-lg bg-brand-surface p-12 text-center text-slate-600">
+              <div className="border border-brand-border rounded-lg bg-brand-surface p-12 text-center text-brand-muted">
                 This retailer has not uploaded any menu items for the {brand.name} platform yet.
               </div>
             ) : (
               <div className="space-y-8">
                 {Object.entries(categories).map(([cat, entries]) => (
                   <div key={cat} className="space-y-3">
-                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest bg-brand-surface border border-brand-border px-3 py-1.5 rounded-md w-fit">
+                    <h3 className="text-xs font-bold text-brand-muted uppercase tracking-widest bg-brand-surface border border-brand-border px-3 py-1.5 rounded-md w-fit">
                       {cat}
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -426,8 +458,8 @@ export default async function RetailerDetailPage({
                               freshnessExpiresAt={entry.freshnessExpiresAt}
                               compact
                             />
-                            <p className="text-xs text-slate-600 leading-relaxed max-w-xs">{entry.product.description}</p>
-                            <div className="flex gap-2 text-[10px] text-slate-500">
+                            <p className="text-xs text-brand-muted leading-relaxed max-w-xs">{entry.product.description}</p>
+                            <div className="flex gap-2 text-[10px] text-brand-muted">
                               {entry.product.strainType && (
                                 <span className="capitalize">{entry.product.strainType}</span>
                               )}
@@ -438,7 +470,7 @@ export default async function RetailerDetailPage({
                           </div>
                           
                           <div className="text-right shrink-0">
-                            <div className="text-[9px] uppercase text-slate-500">
+                            <div className="text-[9px] uppercase text-brand-muted">
                               {entry.isDemonstration ? 'Sample price' : 'Listed price'}
                             </div>
                             <div className="text-sm font-black text-brand-primary">${entry.price.toFixed(2)}</div>
@@ -468,10 +500,10 @@ export default async function RetailerDetailPage({
         <div className="space-y-6">
           
           {/* TRUTH CARD */}
-          <div className="border border-brand-primary/30 shadow-[0_0_15px_rgba(30,195,106,0.03)] bg-brand-surface rounded-lg p-5 space-y-4">
+          <div className="rounded-2xl border border-brand-primary/30 bg-brand-surface p-5 space-y-4 shadow-[0_0_24px_rgba(46,226,127,0.05)]">
             <div className="flex items-center justify-between border-b border-brand-border pb-3">
               <h2 className="text-sm font-bold text-brand-text flex items-center">
-                🛡️ Truth Card
+                <ShieldCheck size={14} className="mr-1.5 text-brand-primary" aria-hidden="true" /> Truth Card
               </h2>
               <DataStatusBadge
                 dataStatus={retailer.dataStatus}
@@ -483,44 +515,44 @@ export default async function RetailerDetailPage({
 
             <div className="space-y-3 text-xs">
               <div className="flex justify-between border-b border-brand-border/40 pb-2">
-                <span className="text-slate-500">Record Source:</span>
-                <span className="font-semibold text-slate-700">{retailer.dataSource}</span>
+                <span className="text-brand-muted">Record Source:</span>
+                <span className="font-semibold text-brand-text/85">{retailer.dataSource}</span>
               </div>
               <div className="flex justify-between border-b border-brand-border/40 pb-2">
-                <span className="text-slate-500">License Claim:</span>
-                <span className="font-semibold text-slate-700">
+                <span className="text-brand-muted">License Claim:</span>
+                <span className="font-semibold text-brand-text/85">
                   {retailer.isDemonstration ? 'Not published for demonstration records' : retailer.licenseNumber || 'Awaiting verification'}
                 </span>
               </div>
               <div className="flex justify-between border-b border-brand-border/40 pb-2">
-                <span className="text-slate-500">Verified At:</span>
-                <span className="font-semibold text-slate-700">
+                <span className="text-brand-muted">Verified At:</span>
+                <span className="font-semibold text-brand-text/85">
                   {retailer.verifiedAt ? new Date(retailer.verifiedAt).toLocaleDateString() : 'Not verified'}
                 </span>
               </div>
               <div className="flex justify-between border-b border-brand-border/40 pb-2">
-                <span className="text-slate-500">Freshness Expires:</span>
-                <span className="font-semibold text-slate-700">
+                <span className="text-brand-muted">Freshness Expires:</span>
+                <span className="font-semibold text-brand-text/85">
                   {retailer.freshnessExpiresAt ? new Date(retailer.freshnessExpiresAt).toLocaleDateString() : 'No verified freshness window'}
                 </span>
               </div>
               <div className="flex justify-between border-b border-brand-border/40 pb-2">
-                <span className="text-slate-500">Confidence:</span>
-                <span className="font-semibold text-slate-700">
+                <span className="text-brand-muted">Confidence:</span>
+                <span className="font-semibold text-brand-text/85">
                   {retailer.confidence === null ? 'Not scored' : `${Math.round(retailer.confidence * 100)}%`}
                 </span>
               </div>
               <div className="flex justify-between border-b border-brand-border/40 pb-2">
-                <span className="text-slate-500">Reviewer:</span>
-                <span className="font-semibold text-slate-700">{retailer.reviewedBy || 'None'}</span>
+                <span className="text-brand-muted">Reviewer:</span>
+                <span className="font-semibold text-brand-text/85">{retailer.reviewedBy || 'None'}</span>
               </div>
               <div className="flex justify-between border-b border-brand-border/40 pb-2">
-                <span className="text-slate-500">Hours Source:</span>
-                <span className="font-semibold text-slate-700">{retailer.hoursSource}</span>
+                <span className="text-brand-muted">Hours Source:</span>
+                <span className="font-semibold text-brand-text/85">{retailer.hoursSource}</span>
               </div>
               <div className="flex justify-between pb-2">
-                <span className="text-slate-500">Listing Status:</span>
-                <span className="font-semibold text-slate-700">
+                <span className="text-brand-muted">Listing Status:</span>
+                <span className="font-semibold text-brand-text/85">
                   {retailer.isSponsored ? 'Paid Placement / Sponsored' : 'Organic directory listing'}
                 </span>
               </div>
@@ -530,49 +562,48 @@ export default async function RetailerDetailPage({
             <div className="pt-2 border-t border-brand-border">
               <Link 
                 href={`/retailer/${retailer.id}/correction`}
-                className="w-full text-center block text-[10px] font-bold text-slate-600 hover:text-brand-primary border border-brand-border hover:border-brand-primary/20 py-2 rounded transition-all bg-brand-background/40"
+                className="w-full text-center block text-[10px] font-bold text-brand-muted hover:text-brand-primary border border-brand-border hover:border-brand-primary/20 py-2 rounded transition-all bg-brand-background/40"
               >
-                📝 Submit Information Correction
+                <FileEdit size={11} className="mr-1 inline" aria-hidden="true" /> Submit Information Correction
               </Link>
             </div>
           </div>
 
-          {/* CUSTOMER REVIEWS & RATINGS */}
-          <div className="border border-brand-border bg-brand-surface rounded-lg p-5 space-y-4">
+          {/* CUSTOMER REVIEWS (honest empty state — no synthetic ratings) */}
+          <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 space-y-3">
             <div className="flex items-center justify-between border-b border-brand-border pb-3">
-              <h2 className="text-sm font-bold text-brand-text flex items-center gap-1.5">
-                ⭐ Customer Rating Metrics
+              <h2 className="flex items-center gap-1.5 text-sm font-bold text-brand-text">
+                <Star size={14} className="text-brand-gold" aria-hidden="true" />
+                Customer Reviews
               </h2>
-              <span className="text-[10px] font-bold text-black bg-brand-background border border-brand-border px-2 py-0.5 rounded">
-                4.9 / 5.0
+              <span className="evidence-mono rounded border border-brand-border bg-brand-background px-2 py-0.5 text-brand-muted">
+                No published reviews yet
               </span>
             </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Service & Speed</span>
-                <div className="w-24 bg-brand-background border border-brand-border h-2 rounded-full overflow-hidden">
-                  <div className="bg-black h-full w-[95%]" />
-                </div>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Product Quality</span>
-                <div className="w-24 bg-brand-background border border-brand-border h-2 rounded-full overflow-hidden">
-                  <div className="bg-black h-full w-[98%]" />
-                </div>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">Accuracy & Labeling</span>
-                <div className="w-24 bg-brand-background border border-brand-border h-2 rounded-full overflow-hidden">
-                  <div className="bg-black h-full w-[100%]" />
-                </div>
-              </div>
-            </div>
-
-            <p className="text-[10px] text-slate-500 pt-2 border-t border-brand-border">
-              Verified patient ratings are audited by primary-source evidence receipts to prevent rating manipulation.
+            <p className="text-xs leading-relaxed text-brand-muted">
+              Reviews appear here only after passing evidence review —
+              no synthetic ratings, ever. Be the first to submit one.
             </p>
             <ReviewModal retailerName={retailer.name} />
+          </div>
+
+          {/* BUSINESS CLAIM CTA */}
+          <div className="hero-aurora rounded-2xl border border-brand-primary/25 bg-brand-surface p-5 space-y-3">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-brand-text">
+              <BadgeCheck size={14} className="text-brand-primary" aria-hidden="true" />
+              Own this business?
+            </h2>
+            <p className="text-xs leading-relaxed text-brand-muted">
+              Claim this listing to manage your menu, hours, deals, and
+              license evidence — and earn the Verified Current label customers
+              filter for. Claims stay private until administrator review.
+            </p>
+            <Link
+              href="/business/claim"
+              className="block w-full rounded-lg bg-brand-primary px-4 py-2.5 text-center text-xs font-bold text-white transition-all hover:brightness-110"
+            >
+              Claim this listing →
+            </Link>
           </div>
 
         </div>

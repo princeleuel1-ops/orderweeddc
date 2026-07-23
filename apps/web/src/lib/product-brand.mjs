@@ -1,0 +1,6 @@
+// Mirrored in product-brand.ts (TypeScript import graph).
+// tests/structured-data.test.mjs asserts the two stay identical.
+export const PUBLIC_PRODUCT_NAME = 'orderweeddc';
+export const PUBLIC_PRODUCT_DOMAIN = 'orderweeddc.com';
+export const PUBLIC_PRODUCT_DESCRIPTION =
+  'Evidence-aware cannabis discovery for Washington, D.C.';

@@ -6,6 +6,8 @@ import {
   CANONICAL_PUBLIC_HOSTNAME,
   CANONICAL_TENANT_DOMAIN,
 } from '@/lib/tenant-host.mjs';
+import { NEIGHBORHOOD_SLUGS } from '@/lib/neighborhood-configs.mjs';
+import { STRAIN_SLUGS } from '@/lib/strain-content.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +38,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 0.8,
     },
-    ...['georgetown', 'dupont-circle', 'capitol-hill', 'u-street-shaw', 'navy-yard-wharf'].map((slug) => ({
+    {
+      url: `${canonicalBase}/neighborhoods`,
+      lastModified: asOf,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    {
+      url: `${canonicalBase}/legal`,
+      lastModified: asOf,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+    {
+      url: `${canonicalBase}/pricing`,
+      lastModified: asOf,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
+      url: `${canonicalBase}/strains`,
+      lastModified: asOf,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    ...STRAIN_SLUGS.map((slug) => ({
+      url: `${canonicalBase}/strains/${slug}`,
+      lastModified: asOf,
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    })),
+    ...NEIGHBORHOOD_SLUGS.map((slug) => ({
       url: `${canonicalBase}/neighborhoods/${slug}`,
       lastModified: asOf,
       changeFrequency: 'weekly' as const,

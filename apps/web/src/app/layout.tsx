@@ -7,6 +7,13 @@ import {
 export const metadata = {
   title: PUBLIC_PRODUCT_NAME,
   description: PUBLIC_PRODUCT_DESCRIPTION,
+  icons: {
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function RootLayout({
@@ -15,8 +22,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className="bg-brand-background text-brand-text min-h-screen flex flex-col font-sans antialiased">
+        {/* React 19 hoists these into <head>. Fonts are self-hosted latin
+            subsets so the strict CSP holds and builds stay deterministic. */}
+        <link
+          rel="preload"
+          href="/fonts/inter-var-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/space-grotesk-var-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         {children}
       </body>
     </html>

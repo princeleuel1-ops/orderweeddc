@@ -5,13 +5,31 @@ import {
   canonicalPlatformUrl,
   requestOrigin,
 } from '@/lib/server-request-url';
-import { buildTenantTheme } from '@/lib/tenant-theme.mjs';
+import { buildTenantTheme, PLATFORM_TONES } from '@/lib/tenant-theme.mjs';
 import { CANONICAL_TENANT_DOMAIN } from '@/lib/tenant-host.mjs';
 import {
   PUBLIC_PRODUCT_DESCRIPTION,
   PUBLIC_PRODUCT_NAME,
 } from '@/lib/product-brand';
+import {
+  jsonLdScriptProps,
+  organizationJsonLd,
+  webSiteJsonLd,
+} from '@/lib/structured-data.mjs';
 import CartDrawer from '@/components/cart-drawer';
+import AgeGate from '@/components/age-gate';
+import MobileNav from '@/components/mobile-nav';
+import { Leaf, ShieldCheck } from 'lucide-react';
+
+const NAV_LINKS = [
+  { href: '/', label: 'Retailers' },
+  { href: '/products', label: 'Products' },
+  { href: '/deals', label: 'Deals' },
+  { href: '/education', label: 'Learn' },
+  { href: '/neighborhoods', label: 'Neighborhoods' },
+  { href: '/compare', label: 'Compare' },
+  { href: '/pricing', label: 'Pricing' },
+];
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }) {
   const { domain } = await params;
@@ -35,7 +53,10 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
       : brand?.name || PUBLIC_PRODUCT_NAME;
 
   return {
-    title: `${displayName} | Washington, D.C.`,
+    title: {
+      default: `${displayName} | Washington, D.C.`,
+      template: `%s | ${displayName}`,
+    },
     description:
       domain === CANONICAL_TENANT_DOMAIN
         ? PUBLIC_PRODUCT_DESCRIPTION
@@ -51,6 +72,7 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
 
 export default async function TenantLayout({ children, params }: { children: React.ReactNode; params: Promise<{ domain: string }> }) {
   const { domain } = await params;
+  const origin = await requestOrigin();
   const [canonicalAdmin, canonicalBusiness] = await Promise.all([
     canonicalPlatformUrl('/admin'),
     canonicalPlatformUrl('/business/login'),
@@ -77,61 +99,84 @@ export default async function TenantLayout({ children, params }: { children: Rea
     '--brand-secondary': theme.secondary,
     '--brand-background': theme.background,
     '--brand-surface': theme.surface,
-    '--brand-border': 'rgba(255, 255, 255, 0.08)',
+    '--brand-raised': PLATFORM_TONES.raised,
+    '--brand-border': PLATFORM_TONES.border,
+    '--brand-muted': PLATFORM_TONES.muted,
+    '--brand-gold': PLATFORM_TONES.gold,
     '--brand-text': theme.text,
   } as CSSProperties;
 
+  const siteOrigin = origin.origin;
+
   return (
     <div className="flex flex-col min-h-screen" style={themeStyle}>
+      {isCanonicalBrand && (
+        <>
+          <script {...jsonLdScriptProps(organizationJsonLd({ origin: siteOrigin }))} />
+          <script {...jsonLdScriptProps(webSiteJsonLd({ origin: siteOrigin }))} />
+        </>
+      )}
+
+      <AgeGate />
+
       {/* Brand Header Nav */}
-      <header className="border-b border-brand-border bg-brand-surface/85 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <Link
-              href="/"
-              aria-label={`${displayName} home`}
-              className="flex items-center text-xl font-black tracking-[-0.04em] text-brand-text"
-            >
-              {isCanonicalBrand ? (
-                <span>
-                  orderweed<span className="text-brand-primary">dc</span>
-                </span>
-              ) : (
-                <>
-                  <span className="mr-2 rounded-md border border-brand-primary/20 bg-brand-primary/10 px-2.5 py-1 text-sm font-semibold text-brand-primary">
-                    {brand?.name.substring(0, 2).toUpperCase() || 'OW'}
-                  </span>
-                  <span>{displayName}</span>
-                </>
-              )}
-            </Link>
-          </div>
-          
-          <nav className="hidden md:flex space-x-6 text-sm font-medium text-slate-600">
-            <Link href="/" className="hover:text-brand-primary transition-colors">Retailers</Link>
-            <Link href="/products" className="hover:text-brand-primary transition-colors">Products</Link>
-            <Link href="/compare" className="hover:text-brand-primary transition-colors">Compare</Link>
-            <Link href="/?type=delivery" className="hover:text-brand-primary transition-colors">Delivery</Link>
-            <Link href="/?type=storefront" className="hover:text-brand-primary transition-colors">Storefronts</Link>
-            <Link href={canonicalAdmin} className="text-slate-500 hover:text-slate-700 transition-colors">Admin Portal</Link>
+      <header className="border-b border-brand-border bg-brand-background/85 backdrop-blur-xl sticky top-0 z-50">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+          <Link
+            href="/"
+            aria-label={`${displayName} home`}
+            className="flex shrink-0 items-center gap-2.5 text-xl font-bold tracking-[-0.04em] text-brand-text font-display"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-primary/15 text-brand-primary ring-1 ring-brand-primary/30">
+              <Leaf size={16} strokeWidth={2.5} aria-hidden="true" />
+            </span>
+            {isCanonicalBrand ? (
+              <span>
+                orderweed<span className="text-brand-primary">dc</span>
+              </span>
+            ) : (
+              <span>{displayName}</span>
+            )}
+          </Link>
+
+          <nav
+            aria-label="Primary navigation"
+            className="hidden md:flex items-center gap-1 text-sm font-medium"
+          >
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded-lg px-3 py-2 text-brand-muted transition-colors hover:bg-brand-raised hover:text-brand-text"
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
-          
-          <div className="flex items-center space-x-4">
-            <div className="text-xs text-slate-500 hidden sm:block border border-brand-border px-3 py-1.5 rounded-full bg-brand-background">
-              Network: <span className="font-semibold text-slate-700">{PUBLIC_PRODUCT_NAME}</span>
-            </div>
+
+          <div className="flex items-center gap-3">
+            <span className="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-surface px-3 py-1.5 text-[11px] font-semibold text-brand-muted">
+              <ShieldCheck size={13} className="text-brand-primary" aria-hidden="true" />
+              Evidence-labeled data
+            </span>
             <Link
               href={canonicalBusiness}
-              className="bg-brand-primary text-black font-semibold text-xs px-4 py-2 rounded-md hover:bg-opacity-90 transition-all"
+              className="hidden sm:inline-flex rounded-lg bg-brand-primary px-4 py-2 text-xs font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
             >
               Business Portal
             </Link>
+            <MobileNav
+              links={[
+                ...NAV_LINKS,
+                { href: canonicalBusiness, label: 'Business Portal' },
+              ]}
+            />
           </div>
         </div>
       </header>
 
       {demonstrationCount > 0 && (
-        <aside className="border-b border-violet-400/30 bg-violet-400/10 px-4 py-3 text-center text-xs font-semibold text-violet-200">
+        <aside className="border-b border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-center text-xs font-semibold text-violet-800">
           Demonstration environment: visible businesses, coordinates, license fields, menus, prices, deals, articles, and rewards are synthetic unless a record explicitly says otherwise.
         </aside>
       )}
@@ -142,17 +187,72 @@ export default async function TenantLayout({ children, params }: { children: Rea
       </main>
 
       {/* Network Ownership Disclosure Footer */}
-      <footer className="border-t border-brand-border bg-brand-surface py-8 text-center text-xs text-slate-500 mt-auto">
-        <div className="max-w-7xl mx-auto px-4">
-          <p className="mb-2">
-            © {new Date().getFullYear()} {displayName}. All rights reserved. • <span className="text-orange-500 font-bold">🔞 21+ Only</span>
-          </p>
-          <p className="text-slate-600 max-w-xl mx-auto leading-relaxed">
-            Disclosure: {displayName} is an evidence-aware directory prototype.
-            Check each record&apos;s data-status label and primary source before
-            relying on it. This platform does not fulfill, deliver, or sell
-            controlled substances directly.
-          </p>
+      <footer className="border-t border-brand-border bg-brand-surface mt-auto">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
+            <div className="col-span-2 md:col-span-1">
+              <p className="flex items-center gap-2 font-display text-lg font-bold text-brand-text">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-primary/15 text-brand-primary">
+                  <Leaf size={14} strokeWidth={2.5} aria-hidden="true" />
+                </span>
+                {isCanonicalBrand ? (
+                  <span>
+                    orderweed<span className="text-brand-primary">dc</span>
+                  </span>
+                ) : (
+                  displayName
+                )}
+              </p>
+              <p className="mt-3 max-w-xs text-xs leading-relaxed text-brand-muted">
+                {PUBLIC_PRODUCT_DESCRIPTION} Every public record carries an
+                explicit source, verification state, and freshness window.
+              </p>
+              <p className="mt-4 inline-flex items-center rounded-full border border-orange-500/35 bg-orange-500/10 px-3 py-1 text-[11px] font-bold text-orange-800">
+                21+ Only
+              </p>
+            </div>
+            <nav aria-label="Explore">
+              <p className="kicker mb-3">Explore</p>
+              <ul className="space-y-2 text-sm text-brand-muted">
+                <li><Link href="/" className="transition-colors hover:text-brand-primary">Retailer directory</Link></li>
+                <li><Link href="/products" className="transition-colors hover:text-brand-primary">Products</Link></li>
+                <li><Link href="/deals" className="transition-colors hover:text-brand-primary">Verified deals</Link></li>
+                <li><Link href="/neighborhoods" className="transition-colors hover:text-brand-primary">Neighborhoods</Link></li>
+                <li><Link href="/education" className="transition-colors hover:text-brand-primary">Education hub</Link></li>
+                <li><Link href="/compare" className="transition-colors hover:text-brand-primary">Compare records</Link></li>
+              </ul>
+            </nav>
+            <nav aria-label="For business">
+              <p className="kicker mb-3">For business</p>
+              <ul className="space-y-2 text-sm text-brand-muted">
+                <li><Link href="/pricing" className="transition-colors hover:text-brand-primary">Published pricing</Link></li>
+                <li><Link href="/business/claim" className="transition-colors hover:text-brand-primary">Claim your listing</Link></li>
+                <li><Link href={canonicalBusiness} className="transition-colors hover:text-brand-primary">Business portal</Link></li>
+                <li><Link href={canonicalAdmin} className="transition-colors hover:text-brand-primary">Admin portal</Link></li>
+              </ul>
+            </nav>
+            <nav aria-label="Trust and legal">
+              <p className="kicker mb-3">Trust &amp; legal</p>
+              <ul className="space-y-2 text-sm text-brand-muted">
+                <li><Link href="/legal" className="transition-colors hover:text-brand-primary">Legal &amp; compliance</Link></li>
+                <li><Link href="/help" className="transition-colors hover:text-brand-primary">Help &amp; data policy</Link></li>
+                <li><Link href="/education" className="transition-colors hover:text-brand-primary">D.C. cannabis rules</Link></li>
+              </ul>
+            </nav>
+          </div>
+          <div className="mt-10 border-t border-brand-border pt-6 text-center">
+            <p className="text-xs text-brand-muted">
+              © {new Date().getFullYear()} {displayName}. All rights reserved.
+            </p>
+            <p className="mx-auto mt-2 max-w-2xl text-[11px] leading-relaxed text-brand-muted/80">
+              Disclosure: {displayName} is an evidence-aware directory.
+              Check each record&apos;s data-status label and primary source before
+              relying on it. This platform does not fulfill, deliver, or sell
+              controlled substances directly. Cannabis is for adults 21+ (or
+              registered patients). Consume responsibly and never drive
+              impaired.
+            </p>
+          </div>
         </div>
       </footer>
       <CartDrawer />

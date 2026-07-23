@@ -10,6 +10,11 @@ import {
   persistSiteIntelligenceSnapshot,
   SITE_ROUTE_INVENTORY,
 } from '@/lib/site-intelligence.mjs';
+import {
+  collectSitemindCounts,
+  buildSitemindReceipt,
+} from '@/lib/sitemind.mjs';
+import { CANONICAL_TENANT_DOMAIN } from '@/lib/tenant-host.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +48,50 @@ function formatUtc(value: Date) {
 export default async function SiteIntelligencePage() {
   const admin = await requireAdmin();
   const snapshot = await collectSiteIntelligenceSnapshot();
+
+  // SiteMind Marketing Audit
+  const canonicalBrand = await prisma.brand.findUnique({
+    where: { domain: CANONICAL_TENANT_DOMAIN },
+    select: { id: true },
+  });
+  const auditAsOf = new Date();
+
+  type SitemindCheck = {
+    id: string;
+    title: string;
+    status: string;
+    evidence: string;
+    recommendation: string;
+    authority: string;
+    weight: number;
+  };
+  type SitemindReceipt = {
+    module: string;
+    schemaVersion: string;
+    generatedAt: string;
+    gitRevision: string;
+    authorityBoundary: string;
+    routeContract: readonly object[];
+    counts: object;
+    score: number;
+    grade: string;
+    checks: readonly SitemindCheck[];
+  };
+
+  const sitemindReceipt: SitemindReceipt | null = canonicalBrand
+    ? await collectSitemindCounts(prisma, {
+        brandId: canonicalBrand.id,
+        asOf: auditAsOf,
+      }).then(
+        (counts) =>
+          buildSitemindReceipt({
+            counts,
+            asOf: auditAsOf,
+            gitRevision: 'ADMIN_VIEW',
+          }) as unknown as SitemindReceipt,
+      )
+    : null;
+
   const [totalRetailers, verifiedRetailers, demoRetailers, recentSnapshots] = await Promise.all([
     prisma.retailer.count(),
     prisma.retailer.count({ where: { dataStatus: 'VERIFIED_CURRENT', isDemonstration: false } }),
@@ -413,6 +462,158 @@ export default async function SiteIntelligencePage() {
         </span>
         .
       </aside>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* SiteMind Marketing Audit                                            */}
+      {/* ------------------------------------------------------------------ */}
+      <section aria-label="SiteMind Marketing Audit" className="space-y-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-primary">
+              SiteMind Marketing Audit v1
+            </p>
+            <h2 className="mt-1 text-xl font-black text-brand-text">
+              Marketing health score with evidence receipts
+            </h2>
+          </div>
+          <p className="max-w-xl text-xs leading-5 text-slate-500">
+            Deterministic scoring from local database state only. Production HTTP, search-console,
+            and analytics remain unproven external gates.
+          </p>
+        </div>
+
+        {sitemindReceipt === null ? (
+          <div className="rounded-xl border border-dashed border-brand-border bg-brand-surface p-6 text-sm text-slate-500">
+            SiteMind audit unavailable: canonical brand record not found for domain{' '}
+            <span className="font-mono">{CANONICAL_TENANT_DOMAIN}</span>.
+          </div>
+        ) : (
+          <>
+            {/* Score summary card */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <article className="rounded-xl border border-brand-border bg-brand-surface p-5 sm:col-span-1">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Marketing Score
+                </p>
+                <p
+                  className={`mt-3 text-5xl font-black ${
+                    sitemindReceipt.grade === 'A'
+                      ? 'text-emerald-400'
+                      : sitemindReceipt.grade === 'B'
+                      ? 'text-emerald-300'
+                      : sitemindReceipt.grade === 'C'
+                      ? 'text-amber-300'
+                      : sitemindReceipt.grade === 'D'
+                      ? 'text-orange-400'
+                      : 'text-rose-400'
+                  }`}
+                >
+                  {sitemindReceipt.score}
+                  <span className="ml-2 text-2xl">/ 100</span>
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  Grade:{' '}
+                  <span
+                    className={
+                      sitemindReceipt.grade === 'A' || sitemindReceipt.grade === 'B'
+                        ? 'text-emerald-300'
+                        : sitemindReceipt.grade === 'C'
+                        ? 'text-amber-300'
+                        : 'text-rose-400'
+                    }
+                  >
+                    {sitemindReceipt.grade}
+                  </span>
+                </p>
+              </article>
+              <article className="rounded-xl border border-brand-border bg-brand-surface p-5 sm:col-span-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Authority boundary
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-600">
+                  {sitemindReceipt.authorityBoundary}
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-3 text-center text-[10px] text-slate-500">
+                  <div>
+                    <p className="text-lg font-black text-brand-text">
+                      {sitemindReceipt.checks.filter((c) => c.status === 'PASS').length}
+                    </p>
+                    <p className="font-bold uppercase tracking-wide text-emerald-300">Pass</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-brand-text">
+                      {sitemindReceipt.checks.filter((c) => c.status === 'WARN').length}
+                    </p>
+                    <p className="font-bold uppercase tracking-wide text-amber-300">Warn</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-brand-text">
+                      {sitemindReceipt.checks.filter((c) => c.status === 'FAIL').length}
+                    </p>
+                    <p className="font-bold uppercase tracking-wide text-rose-400">Fail</p>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            {/* Checks table */}
+            <div className="overflow-x-auto rounded-xl border border-brand-border bg-brand-surface">
+              <table className="w-full min-w-[720px] text-left text-xs">
+                <thead className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                  <tr>
+                    <th className="border-b border-brand-border px-5 pb-3 pt-4">Status</th>
+                    <th className="border-b border-brand-border px-5 pb-3 pt-4">Check</th>
+                    <th className="border-b border-brand-border px-5 pb-3 pt-4">Evidence</th>
+                    <th className="border-b border-brand-border px-5 pb-3 pt-4">Recommendation</th>
+                    <th className="border-b border-brand-border px-5 pb-3 pt-4">Authority</th>
+                    <th className="border-b border-brand-border px-5 pb-3 pt-4 text-right">Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sitemindReceipt.checks.map((check) => (
+                      <tr key={check.id} className="align-top text-slate-600">
+                        <td className="border-b border-brand-border/50 px-5 py-3">
+                          <span
+                            className={`inline-block rounded-full border px-2.5 py-0.5 text-[9px] font-black tracking-wide ${
+                              check.status === 'PASS'
+                                ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                                : check.status === 'WARN'
+                                ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                                : 'border-rose-400/30 bg-rose-400/10 text-rose-400'
+                            }`}
+                          >
+                            {check.status}
+                          </span>
+                        </td>
+                        <td className="border-b border-brand-border/50 px-5 py-3">
+                          <p className="font-bold text-brand-text">{check.title}</p>
+                          <p className="mt-0.5 font-mono text-[9px] text-slate-600">{check.id}</p>
+                        </td>
+                        <td className="border-b border-brand-border/50 px-5 py-3">
+                          <p className="break-all font-mono text-[10px] leading-5 text-slate-500">
+                            {check.evidence}
+                          </p>
+                        </td>
+                        <td className="border-b border-brand-border/50 px-5 py-3 leading-5">
+                          {check.recommendation}
+                        </td>
+                        <td className="border-b border-brand-border/50 px-5 py-3">
+                          <span className="rounded-md border border-brand-border px-2 py-0.5 font-mono text-[9px] text-slate-500">
+                            {check.authority}
+                          </span>
+                        </td>
+                        <td className="border-b border-brand-border/50 px-5 py-3 text-right font-mono text-slate-500">
+                          {check.weight}
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
     </main>
   );
 }

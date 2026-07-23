@@ -54,8 +54,8 @@ async function main() {
       name: 'orderweeddc',
       domain: 'orderweeddc.localhost',
       description: 'Demonstration catalog for the orderweeddc directory experience. All local listings are synthetic.',
-      themePrimary: '#1EC36A',
-      themeSecondary: '#0D8343',
+      themePrimary: '#0e9f5a',
+      themeSecondary: '#0a7443',
     },
     {
       name: 'GreenDeals DC',
@@ -250,6 +250,21 @@ async function main() {
     },
   ];
 
+  // Deterministic, visibly labeled sample prices for demonstration menu
+  // entries. The UI renders these as "Sample price" with the DEMONSTRATION
+  // ONLY badge, and the HTTP truth checks exercise price-band filtering
+  // against them. No randomness: identical seeds produce identical data.
+  const DEMONSTRATION_SAMPLE_PRICES = {
+    'Blue Dream': 38,
+    'Sour Diesel': 42,
+    'OG Kush': 45,
+    'Granddaddy Purple': 40,
+    'Wana Sour Gummies (100mg)': 22,
+    'Wyld Huckleberry Gummies (100mg)': 24,
+    'Raw Garden Live Resin Cartridge': 55,
+    'Pax 3 Vaporizer': 199,
+  };
+
   const seededRetailers = [];
   for (const [retailerIndex, r] of retailersData.entries()) {
     const ret = await prisma.retailer.create({
@@ -266,7 +281,7 @@ async function main() {
 
     // Seed menu entries for each retailer
     console.log(`Seeding menu for ${ret.name}...`);
-    for (const [productIndex, p] of products.entries()) {
+    for (const p of products) {
       // Accessories only for accessories, CBD/Edibles/Flower randomly assigned
       if (p.category === 'accessories' && retailerIndex !== 2 && retailerIndex !== 3) {
         continue;
@@ -276,9 +291,12 @@ async function main() {
         data: {
           retailerId: ret.id,
           productId: p.id,
-          price: 0, // Remediated: Do not inject synthetic pricing data
-          quantity: 0, // Remediated: Do not inject synthetic stock
-          inStock: false, // Default to out of stock
+          // Sample values stay visibly synthetic via DEMONSTRATION_ONLY
+          // labels; zeroed prices rendered as broken data instead of
+          // labeled samples.
+          price: DEMONSTRATION_SAMPLE_PRICES[p.name] ?? 0,
+          quantity: 25,
+          inStock: true,
           ...DEMONSTRATION_PROVENANCE,
         },
       });

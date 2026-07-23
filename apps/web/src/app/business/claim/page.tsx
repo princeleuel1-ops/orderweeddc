@@ -1,13 +1,39 @@
 import Link from 'next/link';
 import { publicSubmissionErrorMessage } from '@/lib/public-submission.mjs';
+import { buildPublicMetadata } from '@/lib/seo-meta.mjs';
+import { BadgeCheck, LineChart, ShieldCheck, Store } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
-  title: 'Claim a Business Listing | Order Weed DC',
+export const metadata = buildPublicMetadata({
+  title: 'Claim Your D.C. Dispensary Listing — Verified Badge & Menu Control',
   description:
-    'Submit a business claim and public evidence reference for administrator review.',
-};
+    'Own a licensed D.C. cannabis business? Claim your listing to manage menus, hours, and deals, submit license evidence, and earn the Verified Current label customers filter for.',
+  canonicalPath: '/business/claim',
+});
+
+const CLAIM_BENEFITS = [
+  {
+    icon: BadgeCheck,
+    title: 'Earn the Verified Current label',
+    text: 'Submit license evidence once; reviewed records get the trust label customers filter for.',
+  },
+  {
+    icon: Store,
+    title: 'Control your menu & hours',
+    text: 'Manage products, prices, deals, and operating hours from a private dashboard.',
+  },
+  {
+    icon: LineChart,
+    title: 'Truth-first ranking',
+    text: 'No pay-to-rank anywhere. Verified, fresh records simply outrank stale ones.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Private until approved',
+    text: 'Claims and evidence stay private until administrator review. No public exposure.',
+  },
+];
 
 export default async function BusinessClaimPage({
   searchParams,
@@ -24,10 +50,25 @@ export default async function BusinessClaimPage({
         <span className="text-black font-black text-xs border border-brand-border bg-brand-surface px-3 py-1 rounded-full uppercase tracking-widest">
           Compliance Ledger
         </span>
-        <h1 className="text-3xl font-extrabold text-brand-text tracking-tight">Claim Your Business Listing</h1>
+        <h1 className="font-display text-3xl font-extrabold text-brand-text tracking-tight">Claim Your Business Listing</h1>
         <p className="text-sm text-slate-600 max-w-md mx-auto">
           Submit your contact details and a public HTTPS evidence reference for administrator review.
         </p>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-3xl">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {CLAIM_BENEFITS.map((benefit) => (
+            <li
+              key={benefit.title}
+              className="rounded-xl border border-brand-border bg-brand-surface p-4 text-left"
+            >
+              <benefit.icon size={16} className="text-brand-primary" aria-hidden="true" />
+              <p className="mt-2 text-xs font-bold text-brand-text">{benefit.title}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{benefit.text}</p>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">

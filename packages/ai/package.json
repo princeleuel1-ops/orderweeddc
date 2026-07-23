@@ -6,7 +6,7 @@
   "main": "src/gateway.mjs",
   "scripts": {
     "build": "node --check src/gateway.mjs && node --check scripts/local-quality-loop.mjs",
-    "test": "node --test tests",
+    "test": "node --test \"tests/*.test.mjs\"",
     "quality-loop": "node scripts/local-quality-loop.mjs"
   }
 }

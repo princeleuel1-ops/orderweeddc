@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Verified D.C. Medical Cannabis Dispensaries, Delivery Services, Menus & Deals.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#FFFFFF',
-    theme_color: '#000000',
+    background_color: '#070b0d',
+    theme_color: '#2ee27f',
     icons: [
       {
         src: '/icon-192.png',

@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "run_...",
+  "workflow_name": "replace-me",
+  "workflow_version": "1.0.0",
+  "status": "RUNNING",
+  "trigger": {
+    "type": "event",
+    "event_id": "evt_...",
+    "idempotency_key": "replace-me",
+    "received_at": "RFC3339"
+  },
+  "budgets": {
+    "steps_remaining": 100,
+    "runtime_seconds_remaining": 10800,
+    "cost_usd_remaining": 25.0
+  },
+  "current_step": {
+    "step_id": "step_...",
+    "step_type": "MODEL_CALL",
+    "attempt": 1,
+    "status": "RUNNING",
+    "idempotency_key": "replace-me",
+    "lease_owner": "worker_...",
+    "lease_expires_at": "RFC3339",
+    "started_at": "RFC3339"
+  },
+  "latest_checkpoint": {
+    "checkpoint_id": "chk_...",
+    "completed_step_ids": [],
+    "state_uri": "durable://...",
+    "artifact_uris": [],
+    "written_at": "RFC3339"
+  },
+  "trace": {
+    "trace_id": "trace_...",
+    "root_span_id": "span_..."
+  },
+  "terminal": null
+}
