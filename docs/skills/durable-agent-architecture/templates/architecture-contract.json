@@ -1,0 +1,87 @@
+{
+  "contract_version": "1.0.0",
+  "system_name": "replace-me",
+  "evidence_status": "PLANNED",
+  "layers": {
+    "execution": {
+      "orchestrator": "replace-me",
+      "state_store": "external-durable-store",
+      "checkpoint_granularity": "step",
+      "authoritative_state_location": "external",
+      "triggers": ["api", "event", "schedule", "human"],
+      "run_states": [
+        "RECEIVED",
+        "PLANNING",
+        "READY",
+        "RUNNING",
+        "WAITING",
+        "PAUSED",
+        "RETRYING",
+        "VERIFYING",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED",
+        "EXHAUSTED"
+      ],
+      "retry_policy": {
+        "max_attempts_per_step": 3,
+        "backoff": "exponential-jitter",
+        "whole_run_retry": false
+      },
+      "observability": {
+        "full_session_trace": true,
+        "trace_trigger_to_outcome": true,
+        "record_cost": true,
+        "record_artifact_lineage": true
+      },
+      "human_controls": ["inspect", "pause", "resume", "cancel", "approve", "override"]
+    },
+    "context": {
+      "model_adapter_interface": "invoke_model(ModelRequest)->ModelResult",
+      "prompt_registry": "versioned",
+      "tool_registry": "versioned-and-permissioned",
+      "memory_adapter": "replace-me",
+      "provider_objects_cross_boundary": false
+    },
+    "compute": {
+      "sandbox_adapter_interface": "provision/execute/logs/artifacts/heartbeat/terminate",
+      "browser_adapter": "replace-me",
+      "sandbox_is_ephemeral": true,
+      "sandbox_is_authoritative_state": false
+    }
+  },
+  "contracts": {
+    "run": "versioned",
+    "step": "versioned",
+    "event": "versioned",
+    "checkpoint": "versioned",
+    "artifact": "versioned",
+    "tool_call": "versioned",
+    "approval": "versioned",
+    "outcome": "versioned",
+    "trace_span": "versioned"
+  },
+  "budgets": {
+    "max_steps": 200,
+    "max_runtime_minutes": 180,
+    "max_recursion_depth": 8,
+    "max_parallel_branches": 12,
+    "max_cost_usd": 25.0
+  },
+  "change_safety": {
+    "versioned_proposals": true,
+    "canary_required": true,
+    "rollback_required": true,
+    "reviewer_can_directly_mutate_production": false
+  },
+  "required_verification": [
+    "mid-step worker crash resumes",
+    "duplicate trigger deduplicates",
+    "model swap preserves workflow",
+    "sandbox swap preserves authoritative state",
+    "side-effect retry is idempotent",
+    "human pause and resume works",
+    "budget exhaustion stops safely",
+    "full trace and artifact lineage exist"
+  ]
+}

@@ -1,0 +1,16 @@
+interface:
+  display_name: durable agent architecture
+  short_description: Design, audit, refactor, and operate long-running AI-agent systems
+    whose execution survives model, prompt, framework, tool, memory, browser, and
+    sandbox changes. Use for autonomous loops, background agents, scheduled agents,
+    delegated sub-agents, durable workflows, agent factories, and brittle agent architectures
+    that repeatedly need rewrites.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
