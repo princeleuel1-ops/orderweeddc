@@ -1,26 +1,38 @@
 /**
- * Builds the Namecheap/cPanel deployment artifact OFF-SERVER.
+ * Builds the Namecheap/cPanel deployment artifact OFF-SERVER — and proves it
+ * runs in TRUE ISOLATION before publishing.
  *
- * Shared hosting must never run `npm install` or `next build` (memory
- * limits kill both). This script produces a self-contained artifact:
+ * Bundler: WEBPACK (`next build --webpack`), permanently. Next 16 defaults to
+ * Turbopack, whose standalone output externalizes hashed package references
+ * (e.g. @prisma/client-<hex>) that are unresolvable outside the build tree —
+ * proven in production on business194 (2026-07-23). The webpack standalone
+ * path traces real, self-contained node_modules.
  *
- *   dist/namecheap/orderweeddc-<shortsha>/
- *     app.js              Passenger startup file
- *     server.js           Next standalone server
- *     .next/              standalone runtime + static assets
- *     node_modules/       pruned runtime deps (from standalone tracing)
- *     public/             static assets incl. restored fonts/art
- *     prisma/             schema (for reference; client is pre-generated)
- *     scripts/            init-production-db.mjs + seed-abca-retailers.mjs
- *     docs/competitive/dc-merchant-universe.json   (seed input)
- *     receipt.json        git sha, build time, verification manifest
- *   dist/namecheap/orderweeddc-<shortsha>.zip
+ * Phases:
+ *   1. Clean: remove .next + old artifact; optional CLEAN_INSTALL=1 npm ci;
+ *      record working-tree state in the receipt.
+ *   2. Restore brand assets, prisma generate (RHEL engines), build --webpack.
+ *   3. Assemble artifact (server, static, public, prisma tooling, bootstrap
+ *      script, schema-template db) and prune server-mismatched binaries when
+ *      SERVER_OPENSSL=1.1.
+ *   4. Hard-stop verification, including a scan of every compiled
+ *      .next/server JS file for unresolved hashed externals.
+ *   5. Package, then run the ISOLATED RUNTIME TEST: extract the tarball into
+ *      a directory outside the repository (no parent node_modules, cleared
+ *      NODE_PATH), bootstrap a copied test database, start app.js, and pass
+ *      the full HTTP battery + restart persistence + rollback db-integrity.
+ *   6. Write the final receipt (bundler, versions, scan + test results) into
+ *      the artifact and re-package. The tarball is only kept if EVERYTHING
+ *      passed.
  *
- * Run from the repo root:  node deploy/namecheap/build-artifact.mjs
+ * Run from the repo root:
+ *   node deploy/namecheap/build-artifact.mjs
+ *   SERVER_OPENSSL=1.1 CLEAN_INSTALL=1 node deploy/namecheap/build-artifact.mjs
  */
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
@@ -29,6 +41,14 @@ const webRoot = path.join(repoRoot, 'apps/web');
 function run(command, options = {}) {
   console.log(`\n$ ${command}`);
   execSync(command, { stdio: 'inherit', ...options });
+}
+
+function capture(command, options = {}) {
+  return execSync(command, { encoding: 'utf8', ...options }).trim();
+}
+
+function sha256File(target) {
+  return createHash('sha256').update(fs.readFileSync(target)).digest('hex');
 }
 
 function assertExists(target, label) {
@@ -41,31 +61,52 @@ function copyDir(from, to) {
   fs.cpSync(from, to, { recursive: true });
 }
 
-const gitSha = execSync('git rev-parse HEAD', { cwd: repoRoot }).toString().trim();
+function walkFiles(dir, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkFiles(full, out);
+    else out.push(full);
+  }
+  return out;
+}
+
+async function httpCode(port, hostHeader, pathname) {
+  return capture(
+    `curl -s -o /dev/null -w "%{http_code}" -H ${JSON.stringify(`Host: ${hostHeader}`)} http://127.0.0.1:${port}${pathname}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 0/1 — identity + clean
+// ---------------------------------------------------------------------------
+const gitSha = capture('git rev-parse HEAD', { cwd: repoRoot });
 const shortSha = gitSha.slice(0, 7);
+const workingTree = capture('git status --porcelain', { cwd: repoRoot });
 const artifactName = `orderweeddc-${shortSha}`;
 const distRoot = path.join(repoRoot, 'dist/namecheap');
 const artifactRoot = path.join(distRoot, artifactName);
 
-// 0. Clean slate for this artifact id.
 fs.rmSync(artifactRoot, { recursive: true, force: true });
+fs.rmSync(path.join(webRoot, '.next'), { recursive: true, force: true });
 fs.mkdirSync(artifactRoot, { recursive: true });
 
-// 1. Restore binary brand assets (fonts, icons, artwork) — they live in
-//    git as base64 and must exist before the build.
+if (process.env.CLEAN_INSTALL === '1') {
+  run('npm ci', { cwd: repoRoot });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — assets, prisma client, webpack standalone build
+// ---------------------------------------------------------------------------
 run('node scripts/restore-brand-assets.mjs', { cwd: webRoot });
-
-// 2. Generate the Prisma client with RHEL engines for CloudLinux.
 run('npx prisma generate', { cwd: webRoot });
-
-// 3. Standalone production build.
-run('npx next build', {
+run('npx next build --webpack', {
   cwd: webRoot,
   env: { ...process.env, NEXT_OUTPUT: 'standalone', NODE_ENV: 'production' },
 });
 
-// 4. Assemble. Next writes standalone output for the workspace layout:
-//    .next/standalone/<monorepo>/apps/web/server.js
+// ---------------------------------------------------------------------------
+// Phase 3 — assemble
+// ---------------------------------------------------------------------------
 const standaloneRoot = path.join(webRoot, '.next/standalone');
 assertExists(standaloneRoot, 'standalone output');
 const nestedWeb = path.join(standaloneRoot, 'apps/web');
@@ -75,24 +116,17 @@ const serverDir = fs.existsSync(path.join(nestedWeb, 'server.js'))
 assertExists(path.join(serverDir, 'server.js'), 'standalone server.js');
 
 copyDir(serverDir, artifactRoot);
-// Root-level node_modules from workspace hoisting (present when Next
-// nests the app dir inside the standalone output).
 const hoistedModules = path.join(standaloneRoot, 'node_modules');
 if (serverDir !== standaloneRoot && fs.existsSync(hoistedModules)) {
   copyDir(hoistedModules, path.join(artifactRoot, 'node_modules'));
 }
-
-// Static chunks and public assets are NOT included in standalone tracing.
 copyDir(path.join(webRoot, '.next/static'), path.join(artifactRoot, '.next/static'));
 copyDir(path.join(webRoot, 'public'), path.join(artifactRoot, 'public'));
-
-// Passenger startup file.
 fs.copyFileSync(
   path.join(repoRoot, 'deploy/namecheap/app.js'),
   path.join(artifactRoot, 'app.js'),
 );
 
-// Database bootstrap tooling + schema + seed input for first-run setup.
 fs.mkdirSync(path.join(artifactRoot, 'scripts'), { recursive: true });
 for (const script of [
   'scripts/init-production-db.mjs',
@@ -113,31 +147,6 @@ for (const opsScript of [
     path.join(artifactRoot, opsScript),
   );
 }
-
-// Schema-template database: apply the EXACT committed Prisma schema to a
-// fresh temporary SQLite file off-server (shared hosting must never run
-// prisma db push). No data of any kind — schema only. The repo has no
-// migration history yet, so db push in this controlled build is the
-// sanctioned path; the first committed migration can replace it later.
-const templateDir = path.join(artifactRoot, 'bootstrap');
-fs.mkdirSync(templateDir, { recursive: true });
-const templateDb = path.join(templateDir, 'orderweeddc-schema-template.db');
-fs.rmSync(templateDb, { force: true });
-run(`npx prisma db push --skip-generate --schema prisma/schema.prisma`, {
-  cwd: webRoot,
-  env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
-});
-const templateInventory = JSON.parse(
-  execSync(`node scripts/db-inspect.mjs`, {
-    cwd: webRoot,
-    env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
-  })
-    .toString()
-    .trim(),
-);
-const templateSha256 = createHash('sha256')
-  .update(fs.readFileSync(templateDb))
-  .digest('hex');
 fs.mkdirSync(path.join(artifactRoot, 'prisma'), { recursive: true });
 fs.copyFileSync(
   path.join(webRoot, 'prisma/schema.prisma'),
@@ -149,23 +158,33 @@ fs.copyFileSync(
   path.join(artifactRoot, 'docs/competitive/dc-merchant-universe.json'),
 );
 
-// 4b. Server-fit pruning (probe-evidence driven). The cPanel probe on
-//     business194.web-hosting.com (2026-07-23) reported OpenSSL 1.1.1k on
-//     glibc, so the rhel-openssl-3.0.x Prisma engine and the musl sharp
-//     binaries are dead bytes on that host. Opt-in via SERVER_OPENSSL=1.1
-//     so default builds keep every engine.
+// Schema-template database (schema only, zero data) — see bootstrap script.
+const templateDir = path.join(artifactRoot, 'bootstrap');
+fs.mkdirSync(templateDir, { recursive: true });
+const templateDb = path.join(templateDir, 'orderweeddc-schema-template.db');
+fs.rmSync(templateDb, { force: true });
+run(`npx prisma db push --skip-generate --schema prisma/schema.prisma`, {
+  cwd: webRoot,
+  env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
+});
+const templateInventory = JSON.parse(
+  capture(`node scripts/db-inspect.mjs`, {
+    cwd: webRoot,
+    env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
+  }),
+);
+const templateSha256 = sha256File(templateDb);
+
+// Server-fit pruning (probe evidence: OpenSSL 1.1.1k on glibc; the server
+// pins the rhel-1.1.x engine explicitly, so other engines are dead bytes).
 const pruned = [];
 if (process.env.SERVER_OPENSSL === '1.1') {
-  const pruneTargets = [
+  for (const target of [
     'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-    // debian-1.1 exists as a belt-and-braces generate target for detection
-    // fallbacks, but this server pins the rhel-1.1 engine explicitly
-    // (app.js + bootstrap script), so it is dead bytes in the artifact.
     'node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node',
     'node_modules/@img/sharp-libvips-linuxmusl-x64',
     'node_modules/@img/sharp-linuxmusl-x64',
-  ];
-  for (const target of pruneTargets) {
+  ]) {
     const full = path.join(artifactRoot, target);
     if (fs.existsSync(full)) {
       fs.rmSync(full, { recursive: true, force: true });
@@ -174,7 +193,9 @@ if (process.env.SERVER_OPENSSL === '1.1') {
   }
 }
 
-// 5. Verify the artifact before packaging. Every check is a hard stop.
+// ---------------------------------------------------------------------------
+// Phase 4 — hard-stop verification (incl. unresolved-external scan)
+// ---------------------------------------------------------------------------
 const checks = {};
 checks['server.js present'] = fs.existsSync(path.join(artifactRoot, 'server.js'));
 checks['app.js present'] = fs.existsSync(path.join(artifactRoot, 'app.js'));
@@ -185,22 +206,22 @@ checks['fonts restored'] = fs.existsSync(
 checks['artwork restored'] = fs.existsSync(
   path.join(artifactRoot, 'public/art/hero-dc.jpg'),
 );
+checks['@prisma/client package present'] = fs.existsSync(
+  path.join(artifactRoot, 'node_modules/@prisma/client/package.json'),
+);
+checks['.prisma/client generated dir present'] = fs.existsSync(
+  path.join(artifactRoot, 'node_modules/.prisma/client'),
+);
 const prismaClientDir = path.join(artifactRoot, 'node_modules/.prisma/client');
 const engineFiles = fs.existsSync(prismaClientDir)
   ? fs.readdirSync(prismaClientDir).filter((file) => file.includes('engine'))
   : [];
-checks['prisma rhel engine bundled'] = engineFiles.some((file) =>
-  file.includes('rhel'),
-);
 checks['prisma engines found'] = engineFiles.length > 0;
-if (process.env.SERVER_OPENSSL === '1.1') {
-  checks['rhel-openssl-1.1.x engine present (probe: OpenSSL 1.1.1k)'] =
-    engineFiles.some((file) => file.includes('rhel-openssl-1.1.x'));
-}
+checks['rhel-openssl-1.1.x engine present (probe: OpenSSL 1.1.1k)'] =
+  engineFiles.some((file) => file.includes('rhel-openssl-1.1.x'));
 checks['schema template present'] = fs.existsSync(templateDb);
 checks['schema template has core tables'] =
-  templateInventory.coreTablesPresent === true &&
-  templateInventory.tableCount > 10;
+  templateInventory.coreTablesPresent === true && templateInventory.tableCount > 10;
 checks['schema template is data-free'] =
   (templateInventory.counts?.organizations ?? 0) === 0 &&
   (templateInventory.counts?.brands ?? 0) === 0 &&
@@ -209,53 +230,263 @@ checks['bootstrap script present'] = fs.existsSync(
   path.join(artifactRoot, 'bootstrap-production-db.sh'),
 );
 
-const failed = Object.entries(checks).filter(([, ok]) => !ok);
-console.log('\nArtifact verification:');
-for (const [name, ok] of Object.entries(checks)) {
-  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
+// Unresolved hashed-external scan across every compiled server JS file.
+// Turbopack emits externals like @prisma/client-2c3a283f134fdcb6 which are
+// unresolvable in an isolated artifact — production incident 2026-07-23.
+const hashedExternalPattern = /@prisma\/client-[0-9a-f]{8,}/;
+const serverJsFiles = walkFiles(path.join(artifactRoot, '.next/server')).filter(
+  (file) => file.endsWith('.js') || file.endsWith('.mjs') || file.endsWith('.cjs'),
+);
+const unresolvedHits = [];
+for (const file of serverJsFiles) {
+  const content = fs.readFileSync(file, 'utf8');
+  const match = content.match(hashedExternalPattern);
+  if (match) {
+    const pkgName = match[0];
+    // Resolvable only if a matching package dir exists inside the artifact.
+    if (!fs.existsSync(path.join(artifactRoot, 'node_modules', pkgName))) {
+      unresolvedHits.push({ file: path.relative(artifactRoot, file), reference: pkgName });
+    }
+  }
 }
-if (failed.length > 0) {
-  throw new Error(
-    `Artifact verification failed: ${failed.map(([name]) => name).join(', ')}`,
+checks[`no unresolved hashed externals (${serverJsFiles.length} server files scanned)`] =
+  unresolvedHits.length === 0;
+
+function reportChecks() {
+  console.log('\nArtifact verification:');
+  for (const [name, ok] of Object.entries(checks)) {
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
+  }
+  const failed = Object.entries(checks).filter(([, ok]) => !ok);
+  if (failed.length > 0) {
+    if (unresolvedHits.length > 0) {
+      console.error('Unresolved external references:', JSON.stringify(unresolvedHits, null, 2));
+    }
+    throw new Error(
+      `Artifact verification failed: ${failed.map(([name]) => name).join(', ')}`,
+    );
+  }
+}
+reportChecks();
+
+// ---------------------------------------------------------------------------
+// Phase 5 — package, then ISOLATED runtime test outside the repository
+// ---------------------------------------------------------------------------
+function writeReceipt(extra = {}) {
+  const receipt = {
+    artifact: artifactName,
+    gitSha,
+    workingTree: workingTree === '' ? 'clean' : workingTree.split('\n'),
+    builtAt: new Date().toISOString(),
+    nodeVersion: process.version,
+    // Hoisted monorepo: resolve through Node so root node_modules works.
+    nextVersion: JSON.parse(
+      fs.readFileSync(
+        capture(`node -e "console.log(require.resolve('next/package.json'))"`, {
+          cwd: webRoot,
+        }),
+        'utf8',
+      ),
+    ).version,
+    prismaVersion: JSON.parse(
+      fs.readFileSync(
+        capture(`node -e "console.log(require.resolve('@prisma/client/package.json'))"`, {
+          cwd: webRoot,
+        }),
+        'utf8',
+      ),
+    ).version,
+    bundler: 'webpack',
+    nextOutput: 'standalone',
+    prismaEngines: engineFiles,
+    serverFitPruned: pruned,
+    unresolvedExternalScan: {
+      filesScanned: serverJsFiles.length,
+      pattern: hashedExternalPattern.source,
+      unresolved: unresolvedHits,
+    },
+    schemaTemplate: {
+      file: 'bootstrap/orderweeddc-schema-template.db',
+      sha256: templateSha256,
+      tableCount: templateInventory.tableCount,
+      tables: templateInventory.tables,
+    },
+    checks,
+    ...extra,
+  };
+  fs.writeFileSync(
+    path.join(artifactRoot, 'receipt.json'),
+    JSON.stringify(receipt, null, 2),
   );
 }
 
-// 6. Receipt: the deployment's identity document.
-const receipt = {
-  artifact: artifactName,
-  gitSha,
-  builtAt: new Date().toISOString(),
-  nodeVersion: process.version,
-  nextOutput: 'standalone',
-  prismaEngines: engineFiles,
-  serverFitPruned: pruned,
-  schemaTemplate: {
-    file: 'bootstrap/orderweeddc-schema-template.db',
-    sha256: templateSha256,
-    tableCount: templateInventory.tableCount,
-    tables: templateInventory.tables,
-  },
-  checks,
-};
-fs.writeFileSync(
-  path.join(artifactRoot, 'receipt.json'),
-  JSON.stringify(receipt, null, 2),
-);
+function packageTar() {
+  run(
+    `tar -czf ${JSON.stringify(`${artifactName}.tar.gz`)} -C ${JSON.stringify(distRoot)} ${JSON.stringify(artifactName)}`,
+    { cwd: distRoot },
+  );
+  return path.join(distRoot, `${artifactName}.tar.gz`);
+}
 
-// 7. Package as tar.gz (available on every Linux box on both sides;
-//    cPanel File Manager and Terminal both extract it).
-run(
-  `tar -czf ${JSON.stringify(`${artifactName}.tar.gz`)} -C ${JSON.stringify(distRoot)} ${JSON.stringify(artifactName)}`,
-  { cwd: distRoot },
-);
-const tarPath = path.join(distRoot, `${artifactName}.tar.gz`);
-const tarSha256 = createHash('sha256')
-  .update(fs.readFileSync(tarPath))
-  .digest('hex');
-fs.writeFileSync(
-  path.join(distRoot, `${artifactName}.tar.gz.sha256`),
-  `${tarSha256}  ${artifactName}.tar.gz\n`,
-);
+writeReceipt({ isolatedRuntimeTest: 'pending' });
+let tarPath = packageTar();
+
+async function isolatedRuntimeTest() {
+  const isoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'owd-isolated-'));
+  const results = { isolationDir: isoRoot, steps: {} };
+  const record = (name, ok, detail) => {
+    results.steps[name] = { ok, detail };
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
+    if (!ok) throw new Error(`Isolated runtime test failed at: ${name}`);
+  };
+
+  console.log(`\nIsolated runtime test in ${isoRoot} (outside the repository):`);
+  run(`tar -xzf ${JSON.stringify(tarPath)} -C ${JSON.stringify(isoRoot)}`);
+  const appRoot = path.join(isoRoot, artifactName);
+  record('artifact extracted outside repo', fs.existsSync(path.join(appRoot, 'server.js')));
+  record(
+    'no parent node_modules can leak',
+    !fs.existsSync(path.join(isoRoot, 'node_modules')) &&
+      !fs.existsSync(path.join(os.tmpdir(), 'node_modules')),
+  );
+
+  // Bootstrap a test database inside isolation (also exercises the script).
+  const dataDir = path.join(isoRoot, 'data');
+  run(
+    `OWD_DATA_DIR=${JSON.stringify(dataDir)} OWD_NODE=${JSON.stringify(process.execPath)} sh bootstrap-production-db.sh`,
+    { cwd: appRoot },
+  );
+  const inspect = JSON.parse(
+    capture(`${JSON.stringify(process.execPath)} scripts/db-inspect.mjs`, {
+      cwd: appRoot,
+      env: {
+        PATH: process.env.PATH,
+        DATABASE_URL: `file:${path.join(dataDir, 'prod.db')}`,
+        PRISMA_QUERY_ENGINE_LIBRARY: path.join(
+          appRoot,
+          'node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node',
+        ),
+      },
+    }),
+  );
+  record(
+    'bootstrap: canonical brand + 74 retailers, zero demo',
+    inspect.counts?.canonicalBrands === 1 &&
+      inspect.counts?.retailers === 74 &&
+      inspect.counts?.demonstrationRetailers === 0,
+    JSON.stringify(inspect.counts),
+  );
+
+  // Start app.js with a minimal, NODE_PATH-free environment.
+  const port = 3260;
+  const serverEnv = {
+    PATH: process.env.PATH,
+    HOME: isoRoot,
+    NODE_ENV: 'production',
+    PORT: String(port),
+    DATABASE_URL: `file:${path.join(dataDir, 'prod.db')}`,
+  };
+  const startServer = () =>
+    spawn(process.execPath, ['app.js'], {
+      cwd: appRoot,
+      env: serverEnv,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false,
+    });
+  let child = startServer();
+  let serverLog = '';
+  child.stdout.on('data', (d) => (serverLog += d));
+  child.stderr.on('data', (d) => (serverLog += d));
+  await new Promise((resolve) => setTimeout(resolve, 6000));
+
+  try {
+    const health = capture(
+      `curl -s -H "Host: orderweeddc.com" http://127.0.0.1:${port}/api/health`,
+    );
+    const healthJson = JSON.parse(health);
+    record(
+      '/api/health HEALTHY with real counts (Host: orderweeddc.com)',
+      healthJson.status === 'HEALTHY' &&
+        healthJson.services?.database?.details?.brandCount === 1 &&
+        healthJson.services?.database?.details?.totalRetailers === 74,
+      JSON.stringify(healthJson.services?.database?.details),
+    );
+    for (const [label, host, pathname, expected] of [
+      ['homepage 200', 'orderweeddc.com', '/', '200'],
+      ['pricing 200', 'orderweeddc.com', '/pricing', '200'],
+      ['robots.txt 200', 'orderweeddc.com', '/robots.txt', '200'],
+      ['sitemap.xml 200', 'orderweeddc.com', '/sitemap.xml', '200'],
+      ['llms.txt 200', 'orderweeddc.com', '/llms.txt', '200'],
+      ['www redirect 308', 'www.orderweeddc.com', '/', '308'],
+      ['unknown host 421', 'evil.example', '/', '421'],
+      ['tenant spoof 404', 'orderweeddc.com', '/wellness.localhost', '404'],
+    ]) {
+      record(label, (await httpCode(port, host, pathname)) === expected);
+    }
+
+    // Restart persistence.
+    child.kill('SIGTERM');
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    child = startServer();
+    await new Promise((resolve) => setTimeout(resolve, 6000));
+    const health2 = JSON.parse(
+      capture(`curl -s -H "Host: orderweeddc.com" http://127.0.0.1:${port}/api/health`),
+    );
+    record(
+      'restart persistence: 74 records after restart',
+      health2.services?.database?.details?.totalRetailers === 74,
+    );
+  } finally {
+    try {
+      child.kill('SIGTERM');
+    } catch {}
+  }
+
+  // Secret scan inside the extracted artifact.
+  const secretHits = capture(
+    `grep -rloE "BEGIN (RSA |EC )?PRIVATE KEY|GEMINI_API_KEY=[A-Za-z0-9_-]{10,}" ${JSON.stringify(appRoot)} 2>/dev/null | head -3 || true`,
+  );
+  record('no secrets in artifact', secretHits === '');
+
+  // Code rollback leaves the database byte-identical.
+  const dbBefore = sha256File(path.join(dataDir, 'prod.db'));
+  const fakeHome = path.join(isoRoot, 'rollback-home');
+  fs.mkdirSync(path.join(fakeHome, 'uploads'), { recursive: true });
+  fs.copyFileSync(tarPath, path.join(fakeHome, 'uploads', `${artifactName}.tar.gz`));
+  run(
+    `HOME=${JSON.stringify(fakeHome)} sh ${JSON.stringify(path.join(repoRoot, 'deploy/namecheap/deploy.sh'))} ${artifactName}.tar.gz`,
+  );
+  run(
+    `HOME=${JSON.stringify(fakeHome)} sh ${JSON.stringify(path.join(repoRoot, 'deploy/namecheap/deploy.sh'))} ${artifactName}.tar.gz`,
+  );
+  run(
+    `HOME=${JSON.stringify(fakeHome)} sh ${JSON.stringify(path.join(repoRoot, 'deploy/namecheap/rollback.sh'))}`,
+  );
+  const dbAfter = sha256File(path.join(dataDir, 'prod.db'));
+  record('rollback leaves database byte-identical', dbBefore === dbAfter, dbBefore);
+
+  results.serverLogTail = serverLog.slice(-400);
+  return results;
+}
+
+const isolatedResults = await isolatedRuntimeTest();
+
+// ---------------------------------------------------------------------------
+// Phase 6 — final receipt (with isolated results) + final package
+// ---------------------------------------------------------------------------
+writeReceipt({
+  isolatedRuntimeTest: {
+    passed: true,
+    isolationDir: isolatedResults.isolationDir,
+    nodeUsed: process.version,
+    steps: Object.fromEntries(
+      Object.entries(isolatedResults.steps).map(([k, v]) => [k, v.ok]),
+    ),
+  },
+});
+tarPath = packageTar();
+const tarSha256 = sha256File(tarPath);
+fs.writeFileSync(`${tarPath}.sha256`, `${tarSha256}  ${artifactName}.tar.gz\n`);
 
 console.log(`\nArtifact ready: ${tarPath}`);
 console.log(`sha256: ${tarSha256}`);

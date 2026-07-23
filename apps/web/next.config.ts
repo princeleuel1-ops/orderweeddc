@@ -87,6 +87,9 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(process.cwd(), "../.."),
   },
+  // Webpack standalone builds (the Namecheap artifact path) need the same
+  // monorepo root for file tracing that turbopack.root provides in dev.
+  outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
   async headers() {
     return [
       {
