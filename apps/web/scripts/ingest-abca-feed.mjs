@@ -13,8 +13,6 @@ async function run() {
   const fileContent = fs.readFileSync(csvPath, 'utf8');
   
   const lines = fileContent.trim().split('\n');
-  const headers = lines[0].split(',');
-  
   console.log(`Found ${lines.length - 1} records to ingest.`);
 
   let inserted = 0;

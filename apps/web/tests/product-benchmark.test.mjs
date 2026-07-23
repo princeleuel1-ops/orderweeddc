@@ -38,6 +38,11 @@ function safeEnvironment() {
     'TMP',
     'TMPDIR',
     'WINDIR',
+    // Public TLS trust-store paths, not credentials. Required behind
+    // corporate/CI TLS-inspection proxies.
+    'NODE_EXTRA_CA_CERTS',
+    'SSL_CERT_FILE',
+    'SSL_CERT_DIR',
   ]) {
     if (typeof process.env[key] === 'string') environment[key] = process.env[key];
   }

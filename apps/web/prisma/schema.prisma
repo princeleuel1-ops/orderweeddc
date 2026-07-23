@@ -23,11 +23,11 @@ model Brand {
   domain          String           @unique // Hostname used to match requests (e.g. orderweeddc.com, brand1.localhost)
   description     String?
   logo            String? // Path or URL to brand logo
-  themePrimary    String           @default("#1EC36A") // CSS primary color code
-  themeSecondary  String           @default("#0D8343")
-  themeBg         String           @default("#0B0F12")
-  themeSurface    String           @default("#141A1E")
-  themeText       String           @default("#E2E8F0")
+  themePrimary    String           @default("#0e9f5a") // CSS primary color code
+  themeSecondary  String           @default("#0a7443")
+  themeBg         String           @default("#f6faf7")
+  themeSurface    String           @default("#ffffff")
+  themeText       String           @default("#0d1f18")
   organizationId  String
   organization    Organization     @relation(fields: [organizationId], references: [id])
   createdAt       DateTime         @default(now())

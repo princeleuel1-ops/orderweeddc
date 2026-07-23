@@ -25,7 +25,7 @@ export default async function CustomerLoginPage({
         <h1 className="text-3xl font-extrabold tracking-tight">
           Sign in to your wallet
         </h1>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-brand-muted">
           Your balances and transaction history are available only after
           customer authentication.
         </p>
@@ -37,7 +37,7 @@ export default async function CustomerLoginPage({
             {error === 'invalid' && (
               <div
                 role="alert"
-                className="bg-red-500/10 border border-red-500/20 text-red-300 p-3 rounded text-xs"
+                className="bg-red-500/10 border border-red-500/20 text-red-700 p-3 rounded text-xs"
               >
                 Invalid email, password, or account type.
               </div>
@@ -46,7 +46,7 @@ export default async function CustomerLoginPage({
             <div>
               <label
                 htmlFor="customer-email"
-                className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2"
+                className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2"
               >
                 Email
               </label>
@@ -57,14 +57,14 @@ export default async function CustomerLoginPage({
                 autoComplete="username"
                 required
                 maxLength={254}
-                className="w-full bg-brand-background border border-brand-border rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
+                className="w-full bg-brand-background border border-brand-border rounded-xl px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
               />
             </div>
 
             <div>
               <label
                 htmlFor="customer-password"
-                className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2"
+                className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2"
               >
                 Password
               </label>
@@ -75,13 +75,13 @@ export default async function CustomerLoginPage({
                 autoComplete="current-password"
                 required
                 maxLength={256}
-                className="w-full bg-brand-background border border-brand-border rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
+                className="w-full bg-brand-background border border-brand-border rounded-xl px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-brand-primary text-black font-extrabold text-sm py-3 px-4 rounded-md hover:bg-opacity-95 transition-all"
+              className="w-full bg-brand-primary text-white font-extrabold text-sm py-3 px-4 rounded-xl hover:brightness-110 transition-all"
             >
               Sign in
             </button>
@@ -90,7 +90,7 @@ export default async function CustomerLoginPage({
           <div className="mt-6 border-t border-brand-border pt-4 text-center">
             <Link
               href="/"
-              className="text-xs text-slate-500 hover:text-brand-text transition-colors"
+              className="text-xs text-brand-muted hover:text-brand-text transition-colors"
             >
               Return to the public directory
             </Link>

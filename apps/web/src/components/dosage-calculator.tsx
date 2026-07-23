@@ -36,7 +36,7 @@ export default function DosageCalculator() {
     <div className="border border-brand-border bg-brand-surface rounded-xl p-6 space-y-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-brand-border pb-4">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-brand-background border border-brand-border px-2.5 py-1 rounded">
+          <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted bg-brand-background border border-brand-border px-2.5 py-1 rounded">
             Interactive Guidance
           </span>
           <h3 className="text-xl font-extrabold text-brand-text mt-1">Patient Dosage Estimator</h3>
@@ -47,7 +47,7 @@ export default function DosageCalculator() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Experience Level Selector */}
         <div>
-          <label className="block text-xs font-bold text-slate-600 mb-2">Experience Level</label>
+          <label className="block text-xs font-bold text-brand-muted mb-2">Experience Level</label>
           <div className="grid grid-cols-3 gap-2">
             {(['beginner', 'intermediate', 'experienced'] as const).map((level) => (
               <button
@@ -56,8 +56,8 @@ export default function DosageCalculator() {
                 onClick={() => setExperience(level)}
                 className={`py-2 px-2 text-xs font-bold rounded-md capitalize transition-all border ${
                   experience === level
-                    ? 'bg-black text-white border-black'
-                    : 'bg-brand-background text-slate-700 border-brand-border hover:border-black'
+                    ? 'bg-brand-primary text-white border-brand-primary'
+                    : 'bg-brand-background text-brand-muted border-brand-border hover:border-brand-primary hover:text-brand-text'
                 }`}
               >
                 {level}
@@ -68,7 +68,7 @@ export default function DosageCalculator() {
 
         {/* Product Type Selector */}
         <div>
-          <label className="block text-xs font-bold text-slate-600 mb-2">Product Format</label>
+          <label className="block text-xs font-bold text-brand-muted mb-2">Product Format</label>
           <div className="grid grid-cols-3 gap-2">
             {(['edible', 'tincture', 'flower'] as const).map((type) => (
               <button
@@ -77,8 +77,8 @@ export default function DosageCalculator() {
                 onClick={() => setFormType(type)}
                 className={`py-2 px-2 text-xs font-bold rounded-md capitalize transition-all border ${
                   formType === type
-                    ? 'bg-black text-white border-black'
-                    : 'bg-brand-background text-slate-700 border-brand-border hover:border-black'
+                    ? 'bg-brand-primary text-white border-brand-primary'
+                    : 'bg-brand-background text-brand-muted border-brand-border hover:border-brand-primary hover:text-brand-text'
                 }`}
               >
                 {type}
@@ -91,7 +91,7 @@ export default function DosageCalculator() {
       {/* Calculated Result Card */}
       <div className="border border-brand-border bg-brand-background/60 rounded-lg p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-black uppercase text-slate-500">Estimated Dosage Range</span>
+          <span className="text-xs font-black uppercase text-brand-muted">Estimated Dosage Range</span>
           <span className="text-[10px] font-bold bg-brand-surface border border-brand-border px-2 py-0.5 rounded text-brand-text">
             Format: {formType}
           </span>
@@ -99,19 +99,19 @@ export default function DosageCalculator() {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="border border-brand-border bg-brand-surface p-3 rounded">
-            <span className="text-[10px] font-bold text-slate-500 uppercase">Recommended THC</span>
+            <span className="text-[10px] font-bold text-brand-muted uppercase">Recommended THC</span>
             <div className="text-lg font-black text-brand-text">{guidance.thc}</div>
           </div>
           <div className="border border-brand-border bg-brand-surface p-3 rounded">
-            <span className="text-[10px] font-bold text-slate-500 uppercase">Recommended CBD</span>
+            <span className="text-[10px] font-bold text-brand-muted uppercase">Recommended CBD</span>
             <div className="text-lg font-black text-brand-text">{guidance.cbd}</div>
           </div>
         </div>
 
-        <p className="text-xs text-slate-600 leading-relaxed pt-1">{guidance.description}</p>
+        <p className="text-xs text-brand-muted leading-relaxed pt-1">{guidance.description}</p>
       </div>
 
-      <p className="text-[10px] text-slate-500">
+      <p className="text-[10px] text-brand-muted">
         Disclaimer: This tool provides general educational guidelines only. Always consult a licensed medical cannabis healthcare practitioner before beginning or adjusting dosage regimens.
       </p>
     </div>

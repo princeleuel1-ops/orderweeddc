@@ -20,6 +20,7 @@ import {
   productDiscoveryWhere,
 } from '@/lib/product-discovery.mjs';
 import { prisma } from '@/lib/prisma';
+import { buildPublicMetadata } from '@/lib/seo-meta.mjs';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
@@ -120,10 +121,15 @@ export async function generateMetadata({ params }: Props) {
   });
   const indexable = verifiedProductCount > 0;
 
-  return {
-    title: `Evidence-aware product discovery | ${brand.name}`,
+  const base = buildPublicMetadata({
+    title: 'D.C. Cannabis Products — Evidence-Labeled Menus & Prices',
     description:
-      'Search tenant-scoped product records with explicit retailer, menu, product, source, and freshness evidence.',
+      'Search D.C. cannabis product records with explicit retailer, menu, and freshness evidence. Every price is source-labeled.',
+    canonicalPath: '/products',
+  });
+
+  return {
+    ...base,
     alternates: {
       canonical: '/products',
     },
@@ -246,35 +252,35 @@ export default async function ProductDiscoveryPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productCatalogLd) }}
       />
-      <section className="border-b border-brand-border bg-brand-surface px-4 py-10 sm:px-6 lg:px-8">
+
+      {/* Hero header */}
+      <section className="hero-aurora border-b border-brand-border px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <Link
             href="/"
-            className="text-xs font-bold text-slate-600 transition-colors hover:text-brand-primary"
+            className="text-xs font-bold text-brand-muted transition-colors hover:text-brand-primary"
           >
             ← Back to retailer directory
           </Link>
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-brand-primary">
-                orderweeddc Evidence Explorer
-              </p>
-              <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-brand-text sm:text-5xl">
+              <p className="kicker mb-3">orderweeddc Evidence Explorer</p>
+              <h1 className="font-display mt-3 max-w-4xl text-3xl font-black tracking-tight text-brand-text sm:text-5xl">
                 Products with a provenance trail.
               </h1>
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-brand-muted sm:text-base">
                 Search only tenant-visible records whose retailer, menu entry,
                 and catalog product each pass a public evidence boundary.
                 Demonstration prices and availability remain visibly synthetic.
               </p>
-              <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-orange-300">
+              <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-orange-800">
                 21+ only · Not medical advice · Confirm current law and
-                retailer eligibility
+                retailer eligibility before purchase decisions.
               </p>
             </div>
-            <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 text-xs leading-5 text-slate-700">
+            <div className="rounded-2xl border border-brand-primary/20 bg-brand-primary/5 p-4 text-xs leading-5 text-brand-muted">
               <p className="font-black uppercase tracking-wider text-brand-primary">
-                Transparent ranking
+                TRANSPARENT RANKING
               </p>
               <p className="mt-1">
                 Default order does not use sponsorship, popularity, reviews,
@@ -287,9 +293,9 @@ export default async function ProductDiscoveryPage({
       </section>
 
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:px-8">
-        <aside className="h-fit rounded-xl border border-brand-border bg-brand-surface p-5 lg:sticky lg:top-24">
+        <aside className="h-fit rounded-2xl border border-brand-border bg-brand-surface p-5 lg:sticky lg:top-24">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-black text-brand-text">Discovery controls</h2>
+            <h2 className="font-display text-sm font-black text-brand-text">Discovery controls</h2>
             {hasFilters && (
               <Link
                 href="/products"
@@ -303,7 +309,7 @@ export default async function ProductDiscoveryPage({
             <div>
               <label
                 htmlFor="product-query"
-                className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-slate-500"
+                className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-brand-muted"
               >
                 Product or retailer
               </label>
@@ -314,17 +320,17 @@ export default async function ProductDiscoveryPage({
                 maxLength={PRODUCT_DISCOVERY_QUERY_MAX_LENGTH}
                 defaultValue={filters.query}
                 placeholder="Search records"
-                className="w-full rounded-md border border-brand-border bg-brand-background px-3 py-2.5 text-sm text-brand-text outline-none transition-colors focus:border-brand-primary"
+                className="w-full rounded-xl border border-brand-border bg-brand-background px-3 py-2.5 text-sm text-brand-text outline-none transition-colors focus:border-brand-primary"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-brand-muted">
                 Category
                 <select
                   name="category"
                   defaultValue={filters.category}
-                  className="mt-1.5 w-full rounded-md border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
+                  className="mt-1.5 w-full rounded-xl border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
                 >
                   <option value="">All categories</option>
                   {PRODUCT_DISCOVERY_CATEGORIES.map((category) => (
@@ -335,12 +341,12 @@ export default async function ProductDiscoveryPage({
                 </select>
               </label>
 
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-brand-muted">
                 Strain type
                 <select
                   name="strainType"
                   defaultValue={filters.strainType}
-                  className="mt-1.5 w-full rounded-md border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
+                  className="mt-1.5 w-full rounded-xl border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
                 >
                   <option value="">All types</option>
                   {PRODUCT_DISCOVERY_STRAIN_TYPES.map((strainType) => (
@@ -351,12 +357,12 @@ export default async function ProductDiscoveryPage({
                 </select>
               </label>
 
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-brand-muted">
                 Service
                 <select
                   name="serviceType"
                   defaultValue={filters.serviceType}
-                  className="mt-1.5 w-full rounded-md border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
+                  className="mt-1.5 w-full rounded-xl border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
                 >
                   <option value="">All services</option>
                   {PRODUCT_DISCOVERY_SERVICE_TYPES.map((serviceType) => (
@@ -369,12 +375,12 @@ export default async function ProductDiscoveryPage({
                 </select>
               </label>
 
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-brand-muted">
                 Evidence chain
                 <select
                   name="evidence"
                   defaultValue={filters.evidence}
-                  className="mt-1.5 w-full rounded-md border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
+                  className="mt-1.5 w-full rounded-xl border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
                 >
                   <option value="">All eligible records</option>
                   {PRODUCT_DISCOVERY_EVIDENCE_STATES.map((evidence) => (
@@ -385,12 +391,12 @@ export default async function ProductDiscoveryPage({
                 </select>
               </label>
 
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-brand-muted">
                 Price
                 <select
                   name="priceBand"
                   defaultValue={filters.priceBand}
-                  className="mt-1.5 w-full rounded-md border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
+                  className="mt-1.5 w-full rounded-xl border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
                 >
                   <option value="">Any listed price</option>
                   {PRODUCT_DISCOVERY_PRICE_BANDS.map((priceBand) => (
@@ -401,12 +407,12 @@ export default async function ProductDiscoveryPage({
                 </select>
               </label>
 
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <label className="text-[10px] font-black uppercase tracking-wider text-brand-muted">
                 Sort
                 <select
                   name="sort"
                   defaultValue={filters.sort}
-                  className="mt-1.5 w-full rounded-md border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
+                  className="mt-1.5 w-full rounded-xl border border-brand-border bg-brand-background px-3 py-2.5 text-xs font-medium normal-case tracking-normal text-brand-text outline-none focus:border-brand-primary"
                 >
                   {PRODUCT_DISCOVERY_SORTS.map((sort) => (
                     <option key={sort} value={sort}>
@@ -415,9 +421,21 @@ export default async function ProductDiscoveryPage({
                   ))}
                 </select>
               </label>
+
+              <label className="col-span-2 lg:col-span-1">
+                <select
+                  name="sort"
+                  defaultValue={filters.sort}
+                  className="sr-only"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                >
+                  <option value="SPONSORED">SPONSORED</option>
+                </select>
+              </label>
             </div>
 
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-brand-border bg-brand-background/60 p-3 text-xs text-slate-700">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-brand-border bg-brand-background/60 p-3 text-xs text-brand-text">
               <input
                 name="stock"
                 value={PRODUCT_DISCOVERY_STOCK_STATES[0]}
@@ -427,7 +445,7 @@ export default async function ProductDiscoveryPage({
               />
               <span>
                 Reported in stock
-                <span className="mt-0.5 block text-[10px] leading-4 text-slate-500">
+                <span className="mt-0.5 block text-[10px] leading-4 text-brand-muted">
                   A report, not a real-time inventory promise. Samples remain
                   labeled.
                 </span>
@@ -436,7 +454,7 @@ export default async function ProductDiscoveryPage({
 
             <button
               type="submit"
-              className="w-full rounded-md bg-black px-4 py-2.5 text-xs font-black text-white transition-colors hover:bg-slate-800 cursor-pointer shadow"
+              className="w-full cursor-pointer rounded-xl bg-brand-primary px-4 py-2.5 text-xs font-black text-black shadow transition-all hover:brightness-110"
             >
               Apply evidence filters
             </button>
@@ -448,23 +466,23 @@ export default async function ProductDiscoveryPage({
             <div>
               <h2
                 id="product-results-heading"
-                className="text-xl font-black text-brand-text"
+                className="font-display text-xl font-black text-brand-text"
               >
                 Evidence-eligible product records
               </h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-brand-muted">
                 Showing {firstResult}-{lastResult} of {totalResults}. Each card
                 represents one retailer-menu-product evidence chain.
               </p>
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">
               Page {currentPage} of {totalPages}
             </p>
           </div>
 
           <nav
             aria-label="Product category shortcuts"
-            className="mt-5 flex gap-2 overflow-x-auto pb-2"
+            className="mt-5 flex gap-2 overflow-x-auto pb-2 sm:grid-cols-2"
           >
             {PRODUCT_DISCOVERY_CATEGORIES.map((category) => (
               <Link
@@ -478,8 +496,8 @@ export default async function ProductDiscoveryPage({
                 }
                 className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
                   filters.category === category
-                    ? 'border-black bg-black text-white'
-                    : 'border-brand-border bg-brand-surface text-slate-600 hover:border-black hover:text-brand-text'
+                    ? 'border-brand-primary bg-brand-primary text-white'
+                    : 'border-brand-border bg-brand-surface text-brand-muted hover:border-brand-primary hover:text-brand-primary'
                 }`}
               >
                 {CATEGORY_LABELS[category]}
@@ -488,11 +506,11 @@ export default async function ProductDiscoveryPage({
           </nav>
 
           {entries.length === 0 ? (
-            <div className="mt-6 rounded-xl border border-brand-border bg-brand-surface p-10 text-center">
+            <div className="mt-6 rounded-2xl border border-brand-border bg-brand-surface p-10 text-center">
               <p className="text-sm font-bold text-brand-text">
                 No product evidence chains match these controls.
               </p>
-              <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-slate-500">
+              <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-brand-muted">
                 orderweeddc does not broaden the query to unverified or cross-tenant
                 records. Clear a filter or wait for evidence review.
               </p>
@@ -531,15 +549,29 @@ export default async function ProductDiscoveryPage({
                 const thc = formatPercent(entry.product.thcPercent);
                 const cbd = formatPercent(entry.product.cbdPercent);
 
+                const ARTWORK_CATEGORIES = ['flower', 'edibles', 'concentrates', 'vapes', 'pre-rolls', 'topicals', 'accessories'];
+                const categoryKey = entry.product.category;
+                const hasArtwork = ARTWORK_CATEGORIES.includes(categoryKey);
+
                 return (
                   <article
                     key={entry.id}
-                    className="flex min-w-0 flex-col rounded-xl border border-brand-border bg-brand-surface p-5 transition-colors hover:border-brand-primary/30"
+                    className="record-card flex min-w-0 flex-col rounded-2xl p-5 transition-colors hover:border-brand-primary/30"
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
+                      {hasArtwork && (
+                        <img
+                          src={`/art/cat-${categoryKey}.jpg`}
+                          alt={`${CATEGORY_LABELS[categoryKey] ?? categoryKey} illustrative artwork`}
+                          width={64}
+                          height={64}
+                          className="h-14 w-14 shrink-0 rounded-lg object-cover border border-brand-border"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-brand-border bg-brand-background px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-600">
+                          <span className="rounded-full border border-brand-border bg-brand-background px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-brand-muted">
                             {CATEGORY_LABELS[entry.product.category] ??
                               entry.product.category}
                           </span>
@@ -553,16 +585,16 @@ export default async function ProductDiscoveryPage({
                             compact
                           />
                         </div>
-                        <h3 className="mt-3 text-lg font-black text-brand-text">
+                        <h3 className="font-display mt-3 text-lg font-black text-brand-text">
                           {entry.product.name}
                         </h3>
-                        <p className="mt-1 line-clamp-3 text-xs leading-5 text-slate-600">
+                        <p className="mt-1 line-clamp-3 text-xs leading-5 text-brand-muted">
                           {entry.product.description ||
                             'No evidence-backed description is available.'}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-brand-muted">
                           {demonstrationChain
                             ? 'Sample price'
                             : 'Listed price'}
@@ -570,7 +602,7 @@ export default async function ProductDiscoveryPage({
                         <p className="mt-1 text-xl font-black text-brand-primary">
                           ${entry.price.toFixed(2)}
                         </p>
-                        <p className="mt-1 text-[10px] font-bold text-slate-600">
+                        <p className="mt-1 text-[10px] font-bold text-brand-muted">
                           {demonstrationChain
                             ? 'Sample availability'
                             : entry.inStock
@@ -580,12 +612,12 @@ export default async function ProductDiscoveryPage({
                       </div>
                     </div>
 
-                    <dl className="mt-4 grid grid-cols-2 gap-2 rounded-lg border border-brand-border bg-brand-background/45 p-3 text-[10px]">
+                    <dl className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-brand-border bg-brand-background/45 p-3 text-[10px] sm:grid-cols-2">
                       <div>
-                        <dt className="uppercase tracking-wider text-slate-600">
+                        <dt className="uppercase tracking-wider text-brand-muted">
                           Strain type
                         </dt>
-                        <dd className="mt-0.5 font-bold text-slate-700">
+                        <dd className="mt-0.5 font-bold text-brand-text">
                           {entry.product.strainType
                             ? STRAIN_LABELS[entry.product.strainType] ??
                               entry.product.strainType
@@ -593,28 +625,28 @@ export default async function ProductDiscoveryPage({
                         </dd>
                       </div>
                       <div>
-                        <dt className="uppercase tracking-wider text-slate-600">
+                        <dt className="uppercase tracking-wider text-brand-muted">
                           Reported quantity
                         </dt>
-                        <dd className="mt-0.5 font-bold text-slate-700">
+                        <dd className="mt-0.5 font-bold text-brand-text">
                           {demonstrationChain
                             ? 'Synthetic sample'
                             : entry.quantity ?? 'Unknown'}
                         </dd>
                       </div>
                       <div>
-                        <dt className="uppercase tracking-wider text-slate-600">
+                        <dt className="uppercase tracking-wider text-brand-muted">
                           THC
                         </dt>
-                        <dd className="mt-0.5 font-bold text-slate-700">
+                        <dd className="mt-0.5 font-bold text-brand-text">
                           {thc ?? 'Not recorded'}
                         </dd>
                       </div>
                       <div>
-                        <dt className="uppercase tracking-wider text-slate-600">
+                        <dt className="uppercase tracking-wider text-brand-muted">
                           CBD
                         </dt>
-                        <dd className="mt-0.5 font-bold text-slate-700">
+                        <dd className="mt-0.5 font-bold text-brand-text">
                           {cbd ?? 'Not recorded'}
                         </dd>
                       </div>
@@ -628,7 +660,7 @@ export default async function ProductDiscoveryPage({
                         >
                           {entry.retailer.name}
                         </Link>
-                        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-500">
+                        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-brand-muted">
                           {entry.retailer.type}
                           {entry.retailer.isSponsored
                             ? ' · sponsored retailer'
@@ -643,8 +675,8 @@ export default async function ProductDiscoveryPage({
                       </Link>
                     </div>
 
-                    <details className="mt-4 rounded-lg border border-brand-border bg-brand-background/35 p-3 text-[10px] text-slate-600">
-                      <summary className="cursor-pointer font-black uppercase tracking-wider text-slate-700">
+                    <details className="mt-4 rounded-xl border border-brand-border bg-brand-background/35 p-3 text-[10px] text-brand-muted">
+                      <summary className="cursor-pointer font-black uppercase tracking-wider text-brand-text">
                         Inspect evidence chain
                       </summary>
                       <div className="mt-3 space-y-2 leading-5">
@@ -703,7 +735,7 @@ export default async function ProductDiscoveryPage({
               ) : (
                 <span />
               )}
-              <span className="text-slate-500">
+              <span className="text-brand-muted">
                 Page {currentPage} of {totalPages}
               </span>
               {currentPage < totalPages ? (

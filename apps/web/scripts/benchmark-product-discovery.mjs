@@ -48,6 +48,12 @@ const safeEnvironmentKeys = [
   'PATHEXT',
   'SystemRoot',
   'WINDIR',
+  // Public TLS trust-store paths, not credentials. Required so sanitized
+  // child processes can verify HTTPS behind corporate/CI TLS-inspection
+  // proxies. They contain no secrets and grant no authority.
+  'NODE_EXTRA_CA_CERTS',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
 ];
 
 function safeEnvironment(additions = {}) {

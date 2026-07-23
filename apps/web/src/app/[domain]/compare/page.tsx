@@ -70,7 +70,7 @@ function ComparisonRow({
     <tr className="border-t border-brand-border align-top">
       <th
         scope="row"
-        className="sticky left-0 z-10 min-w-40 bg-brand-background px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600"
+        className="sticky left-0 z-10 min-w-40 bg-brand-background px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-brand-muted"
       >
         {label}
       </th>
@@ -176,7 +176,7 @@ export default async function RetailerComparePage({
       <div>
         <Link
           href="/"
-          className="text-xs font-semibold text-slate-600 transition-colors hover:text-brand-primary"
+          className="text-xs font-semibold text-brand-muted transition-colors hover:text-brand-primary"
         >
           ← Back to directory
         </Link>
@@ -184,13 +184,11 @@ export default async function RetailerComparePage({
 
       <section className="overflow-hidden rounded-2xl border border-brand-border bg-brand-surface">
         <div className="border-b border-brand-border bg-gradient-to-br from-brand-primary/15 via-brand-surface to-brand-surface px-6 py-8 sm:px-8">
-          <p className="mb-2 text-xs font-black uppercase tracking-[0.24em] text-brand-primary">
-            orderweeddc Trust Lens
-          </p>
-          <h1 className="text-3xl font-black tracking-tight text-brand-text sm:text-4xl">
+          <p className="kicker mb-2">orderweeddc Trust Lens</p>
+          <h1 className="font-display text-3xl font-black tracking-tight text-brand-text sm:text-4xl">
             Compare records, not hype.
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-muted">
             Compare up to {RETAILER_COMPARE_LIMIT} public records by the
             evidence and freshness orderweeddc can actually prove. This view does not
             rank businesses, infer quality, or turn sponsored placement into a
@@ -207,7 +205,7 @@ export default async function RetailerComparePage({
               <p className="text-xs font-bold uppercase tracking-wider text-brand-text">
                 {title}
               </p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
+              <p className="mt-1 text-xs leading-5 text-brand-muted">
                 {description}
               </p>
             </div>
@@ -216,7 +214,7 @@ export default async function RetailerComparePage({
       </section>
 
       {selection.rejectedCount > 0 && (
-        <aside className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+        <aside className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-800">
           {selection.rejectedCount} duplicate, malformed, or excess selection
           {selection.rejectedCount === 1 ? ' was' : 's were'} ignored. orderweeddc
           evaluates no more than {RETAILER_COMPARE_LIMIT} records at once.
@@ -224,7 +222,7 @@ export default async function RetailerComparePage({
       )}
 
       {unavailableCount > 0 && (
-        <aside className="rounded-lg border border-slate-500/30 bg-slate-500/10 px-4 py-3 text-sm text-slate-700">
+        <aside className="rounded-xl border border-brand-border bg-brand-surface px-4 py-3 text-sm text-brand-muted">
           {unavailableCount} selection{unavailableCount === 1 ? '' : 's'} could
           not be displayed inside this tenant&apos;s public evidence boundary.
           No private record details were disclosed.
@@ -232,18 +230,18 @@ export default async function RetailerComparePage({
       )}
 
       {comparison.length === 0 ? (
-        <section className="rounded-xl border border-brand-border bg-brand-surface px-6 py-16 text-center">
-          <h2 className="text-xl font-bold text-brand-text">
+        <section className="rounded-2xl border border-brand-border bg-brand-surface px-6 py-16 text-center">
+          <h2 className="font-display text-xl font-bold text-brand-text">
             Choose records from the directory
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-brand-muted">
             Select two or three retailer cards to build a bounded comparison.
             Your selection is carried only in the URL; orderweeddc does not create a
             profile or tracking record.
           </p>
           <Link
             href="/"
-            className="mt-6 inline-flex rounded-md bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
+            className="mt-6 inline-flex rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-black hover:brightness-110 transition-all"
           >
             Select retailers
           </Link>
@@ -251,7 +249,7 @@ export default async function RetailerComparePage({
       ) : (
         <>
           {comparison.length === 1 && (
-            <p className="rounded-lg border border-blue-400/20 bg-blue-400/5 px-4 py-3 text-sm text-blue-200">
+            <p className="rounded-lg border border-blue-400/20 bg-blue-400/5 px-4 py-3 text-sm text-blue-800">
               One public record is shown. Select at least one more retailer for
               a side-by-side comparison.
             </p>
@@ -267,7 +265,7 @@ export default async function RetailerComparePage({
               </caption>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 min-w-40 bg-brand-background px-4 py-5 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <th className="sticky left-0 z-20 min-w-40 bg-brand-background px-4 py-5 text-left text-xs font-bold uppercase tracking-wider text-brand-muted">
                     Trust dimension
                   </th>
                   {comparison.map((retailer) => (
@@ -282,14 +280,14 @@ export default async function RetailerComparePage({
                       >
                         {retailer.name}
                       </Link>
-                      <p className="mt-1 text-xs capitalize text-slate-500">
+                      <p className="mt-1 text-xs capitalize text-brand-muted">
                         {retailer.type} · {retailer.city}, {retailer.state}
                       </p>
                       <Link
                         href={retailerCompareHref(
                           selection.ids.filter((id) => id !== retailer.id),
                         )}
-                        className="mt-3 inline-flex text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-brand-text"
+                        className="mt-3 inline-flex text-[10px] font-bold uppercase tracking-wider text-brand-muted hover:text-brand-text"
                       >
                         Remove
                       </Link>
@@ -317,7 +315,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-200"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {retailer.dataSource || 'Unspecified'}
                     </td>
@@ -339,7 +337,7 @@ export default async function RetailerComparePage({
                           Open safe HTTPS source ↗
                         </a>
                       ) : (
-                        <span className="text-slate-500">
+                        <span className="text-brand-muted">
                           No safe public source URL
                         </span>
                       )}
@@ -350,7 +348,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {formatTimestamp(retailer.retrievedAt)}
                     </td>
@@ -360,7 +358,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {formatTimestamp(retailer.verifiedAt)}
                     </td>
@@ -370,7 +368,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {formatTimestamp(retailer.freshnessExpiresAt)}
                     </td>
@@ -380,7 +378,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {formatConfidence(retailer.confidence)}
                     </td>
@@ -390,7 +388,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {retailer.isDemonstration
                         ? 'Not published for demonstration records'
@@ -402,7 +400,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {retailer.isSponsored
                         ? 'Yes — separated from trust state'
@@ -436,7 +434,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {formatTimestamp(retailer.menuUpdatedAt)}
                     </td>
@@ -446,7 +444,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {formatTimestamp(retailer.dealUpdatedAt)}
                     </td>
@@ -462,7 +460,7 @@ export default async function RetailerComparePage({
                         className={
                           retailer.handoffEligible
                             ? 'font-bold text-brand-primary'
-                            : 'text-slate-500'
+                            : 'text-brand-muted'
                         }
                       >
                         {retailer.handoffEligible
@@ -476,7 +474,7 @@ export default async function RetailerComparePage({
                   {comparison.map((retailer) => (
                     <td
                       key={retailer.id}
-                      className="border-l border-brand-border px-5 py-4 text-sm text-slate-700"
+                      className="border-l border-brand-border px-5 py-4 text-sm text-brand-text"
                     >
                       {formatTimestamp(retailer.updatedAt)}
                     </td>
@@ -488,7 +486,7 @@ export default async function RetailerComparePage({
         </>
       )}
 
-      <aside className="rounded-lg border border-violet-400/20 bg-violet-400/5 px-5 py-4 text-xs leading-5 text-violet-200">
+      <aside className="rounded-lg border border-violet-400/20 bg-violet-400/5 px-5 py-4 text-xs leading-5 text-violet-800">
         Comparison is descriptive, not a recommendation. A visible record is
         not proof of licensure, product availability, service area, quality, or
         legality. Confirm consequential claims with the cited primary source.

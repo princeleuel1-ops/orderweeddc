@@ -57,32 +57,32 @@ export default async function RetailerCorrectionPage({ params, searchParams }: P
   if (!retailer) notFound();
 
   return (
-    <div className="min-h-screen bg-[#0B0F12] text-brand-text flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 animate-fade-in">
+    <div className="flex-grow flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-brand-background text-brand-text animate-fade-in">
       <div className="sm:mx-auto sm:w-full sm:max-w-lg text-center space-y-2">
-        <Link href={`/retailer/${id}`} className="text-xs font-semibold text-slate-600 hover:text-brand-primary mb-3 inline-block transition-colors">
+        <Link href={`/retailer/${id}`} className="text-xs font-semibold text-brand-muted hover:text-brand-primary mb-3 inline-block transition-colors">
           ← Back to profile
         </Link>
         <br />
-        <span className="text-orange-500 font-black text-xs border border-orange-500/20 bg-orange-500/5 px-3 py-1 rounded-full uppercase tracking-widest">
+        <span className="text-orange-700 font-black text-xs border border-orange-500/30 bg-orange-500/10 px-3 py-1 rounded-full uppercase tracking-widest">
           Information Dispute Portal
         </span>
         <h1 className="text-3xl font-extrabold text-brand-text tracking-tight">Submit Correction for {retailer.name}</h1>
-        <p className="text-sm text-slate-600 max-w-md mx-auto">
+        <p className="text-sm text-brand-muted max-w-md mx-auto">
           Identify a potentially incorrect field and submit a primary-source reference for administrator review.
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
-        <div className="bg-[#141A1E] border border-white/5 py-8 px-4 shadow sm:rounded-lg sm:px-10 space-y-6">
-          
+        <div className="bg-brand-surface border border-brand-border py-8 px-4 shadow-sm sm:rounded-lg sm:px-10 space-y-6">
+
           {submitted ? (
             <div className="bg-brand-primary/10 border border-brand-primary/20 text-brand-primary p-5 rounded-lg space-y-3">
               <h2 className="text-sm font-bold">📥 Correction Request Filed</h2>
-              <p className="text-xs text-slate-700 leading-relaxed">
+              <p className="text-xs text-brand-muted leading-relaxed">
                 Your correction request and evidence reference were submitted for administrator review.
               </p>
               <div className="pt-2">
-                <Link href={`/retailer/${id}`} className="bg-brand-primary text-black font-bold text-xs px-4 py-2 rounded inline-block hover:bg-opacity-90 transition-all">
+                <Link href={`/retailer/${id}`} className="bg-brand-primary text-white font-bold text-xs px-4 py-2 rounded inline-block hover:brightness-110 transition-all">
                   Return to Profile
                 </Link>
               </div>
@@ -93,15 +93,15 @@ export default async function RetailerCorrectionPage({ params, searchParams }: P
               method="post"
               className="space-y-5"
             >
-              
+
               {errorMessage && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded text-xs">
+                <div className="bg-red-500/10 border border-red-500/20 text-red-700 p-3 rounded text-xs">
                   Error: {errorMessage}
                 </div>
               )}
 
               <div>
-                <label htmlFor="correction-email" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                <label htmlFor="correction-email" className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">
                   Your Contact Email / Association
                 </label>
                 <input
@@ -112,19 +112,19 @@ export default async function RetailerCorrectionPage({ params, searchParams }: P
                   maxLength={254}
                   autoComplete="email"
                   placeholder="auditor@dispensary.com"
-                  className="w-full bg-[#0B0F12] border border-white/10 rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
+                  className="w-full bg-brand-background border border-brand-border rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
                 />
               </div>
 
               <div>
-                <label htmlFor="correction-field" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                <label htmlFor="correction-field" className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">
                   Incorrect Field to Correct
                 </label>
                 <select
                   id="correction-field"
                   name="fieldName"
                   required
-                  className="w-full bg-[#0B0F12] border border-white/10 rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
+                  className="w-full bg-brand-background border border-brand-border rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
                 >
                   <option value="address">Storefront Address</option>
                   <option value="phone">Contact Phone Number</option>
@@ -135,7 +135,7 @@ export default async function RetailerCorrectionPage({ params, searchParams }: P
               </div>
 
               <div>
-                <label htmlFor="correction-value" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                <label htmlFor="correction-value" className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">
                   Corrected New Value
                 </label>
                 <input
@@ -145,12 +145,12 @@ export default async function RetailerCorrectionPage({ params, searchParams }: P
                   required
                   maxLength={240}
                   placeholder="Enter the correct information..."
-                  className="w-full bg-[#0B0F12] border border-white/10 rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
+                  className="w-full bg-brand-background border border-brand-border rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
                 />
               </div>
 
               <div>
-                <label htmlFor="correction-evidence" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                <label htmlFor="correction-evidence" className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">
                   Public HTTPS Evidence URL (PDF / Image)
                 </label>
                 <input
@@ -161,12 +161,12 @@ export default async function RetailerCorrectionPage({ params, searchParams }: P
                   maxLength={2048}
                   inputMode="url"
                   placeholder="https://public-source.example/record.pdf"
-                  className="w-full bg-[#0B0F12] border border-white/10 rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
+                  className="w-full bg-brand-background border border-brand-border rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
                 />
               </div>
 
               <div>
-                <label htmlFor="correction-reason" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                <label htmlFor="correction-reason" className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">
                   Explanation / Reason for Correction
                 </label>
                 <textarea
@@ -177,18 +177,18 @@ export default async function RetailerCorrectionPage({ params, searchParams }: P
                   maxLength={1000}
                   rows={3}
                   placeholder="Explain why the current listed value is incorrect..."
-                  className="w-full bg-[#0B0F12] border border-white/10 rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
+                  className="w-full bg-brand-background border border-brand-border rounded-md px-3 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-primary transition-colors"
                 ></textarea>
               </div>
 
-              <div className="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded text-xs text-yellow-500 leading-relaxed">
+              <div className="bg-amber-400/5 border border-amber-400/20 p-4 rounded text-xs text-amber-800 leading-relaxed">
                 ℹ️ <strong>Dispute queue:</strong> A submission places the record in review. An administrator must validate the evidence before changing a non-demonstration listing; submission alone never creates a verified state.
               </div>
 
               <div>
                 <button
                   type="submit"
-                  className="w-full bg-brand-primary text-black font-extrabold text-sm py-3 px-4 rounded-md hover:bg-opacity-95 active:scale-98 transition-all"
+                  className="w-full bg-brand-primary text-white font-extrabold text-sm py-3 px-4 rounded-md hover:brightness-110 active:scale-98 transition-all"
                 >
                   Submit Correction & Enter Queue
                 </button>
