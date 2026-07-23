@@ -113,6 +113,27 @@ fs.copyFileSync(
   path.join(artifactRoot, 'docs/competitive/dc-merchant-universe.json'),
 );
 
+// 4b. Server-fit pruning (probe-evidence driven). The cPanel probe on
+//     business194.web-hosting.com (2026-07-23) reported OpenSSL 1.1.1k on
+//     glibc, so the rhel-openssl-3.0.x Prisma engine and the musl sharp
+//     binaries are dead bytes on that host. Opt-in via SERVER_OPENSSL=1.1
+//     so default builds keep every engine.
+const pruned = [];
+if (process.env.SERVER_OPENSSL === '1.1') {
+  const pruneTargets = [
+    'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+    'node_modules/@img/sharp-libvips-linuxmusl-x64',
+    'node_modules/@img/sharp-linuxmusl-x64',
+  ];
+  for (const target of pruneTargets) {
+    const full = path.join(artifactRoot, target);
+    if (fs.existsSync(full)) {
+      fs.rmSync(full, { recursive: true, force: true });
+      pruned.push(target);
+    }
+  }
+}
+
 // 5. Verify the artifact before packaging. Every check is a hard stop.
 const checks = {};
 checks['server.js present'] = fs.existsSync(path.join(artifactRoot, 'server.js'));
@@ -132,6 +153,10 @@ checks['prisma rhel engine bundled'] = engineFiles.some((file) =>
   file.includes('rhel'),
 );
 checks['prisma engines found'] = engineFiles.length > 0;
+if (process.env.SERVER_OPENSSL === '1.1') {
+  checks['rhel-openssl-1.1.x engine present (probe: OpenSSL 1.1.1k)'] =
+    engineFiles.some((file) => file.includes('rhel-openssl-1.1.x'));
+}
 
 const failed = Object.entries(checks).filter(([, ok]) => !ok);
 console.log('\nArtifact verification:');
@@ -152,6 +177,7 @@ const receipt = {
   nodeVersion: process.version,
   nextOutput: 'standalone',
   prismaEngines: engineFiles,
+  serverFitPruned: pruned,
   checks,
 };
 fs.writeFileSync(
