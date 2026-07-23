@@ -17,26 +17,53 @@ import { LEGAL_FAQ_COUNT } from './legal-faq.mjs';
 export const SITEMIND_SCHEMA_VERSION = '1.0.0';
 
 // ---------------------------------------------------------------------------
-// Competitor parity contract — static, frozen reference facts observed on
-// 2026-07-22. Authority: STATIC_CONTRACT.
+// Competitor parity contract — static, frozen reference facts. Facts marked
+// (field recon 2026-07-23) were re-observed via direct crawl; see
+// docs/competitive/{leafly,weedmaps-wheresweed}-field-recon-2026-07-23.md.
+// Authority: STATIC_CONTRACT. Re-verify each SENSE cycle.
 // ---------------------------------------------------------------------------
 
 export const COMPETITOR_PARITY_CONTRACT = Object.freeze({
-  observedAt: '2026-07-22',
-  source: 'competitors/marketing-dossier.md',
+  observedAt: '2026-07-23',
+  source: 'docs/competitive/*-field-recon-2026-07-23.md',
   facts: Object.freeze({
     leafly: Object.freeze({
       strainPages: 19209,
       dispensaryPages: 36677,
       newsArticles: 8800,
-      llmsTxt: false,
+      llmsTxt: false, // 2026-07-23: /llms.txt still serves the app shell
       dcNeighborhoodPages: 0,
+      // Field recon 2026-07-23:
+      gptBotBlocked: true, // GPTBot Disallow:/ except 26 affiliate articles
+      publishesPricing: false, // demo-gated; "contact us"
+      licenseVerification: 'display-only', // shows ABCA #, self-attested, not in JSON-LD
+      dealValidityData: false, // no expiry on deal cards; MD stores bleed into DC
+      sponsoredDisclosure: 'section-header-only',
     }),
     weedmaps: Object.freeze({
       strainPages: 9344,
       dispensaryPages: 9229,
       dcNeighborhoodPages: 17,
-      llmsTxt: true,
+      llmsTxt: true, // novel LLMTXT: directive -> /llm.txt (10.3KB)
+      // Field recon 2026-07-23:
+      dcListingsLive: 30, // delisting did NOT happen; long-form URL live
+      dcDelisted: false,
+      legacyDcUrls404: true, // short-form DC paths now 404
+      dcDealPagesIndexed: 0,
+      botWall406: true, // ALL listing pages 406 to fetchers -> AI-invisible
+      publishesPricing: false,
+      licenseVerification: 'self-certify',
+    }),
+    wheresweed: Object.freeze({
+      // Field recon 2026-07-23 (most direct DC competitor):
+      dcBusinessPages: 70, // 50 delivery + 18 dispensary + 2 other, sitemapped
+      serverSideRendered: false, // Vite SPA; top-10 JSON-LD only, ssrPageLoaded:false
+      llmsTxt: false,
+      addBusiness404: true, // merchant self-serve onboarding is a hard 404
+      publishesPricing: false, // media-kit contact form only
+      licenseVerification: 'none',
+      dcDeliveryReviewMoat: true, // top merchants 1.5k-4.4k reviews (the one real moat)
+      securityHeaders: false, // no CSP/HSTS/XFO
     }),
   }),
 });
@@ -67,8 +94,10 @@ export const SITEMIND_ROUTE_REGISTRY = Object.freeze([
   Object.freeze({
     route: '/deals',
     kind: 'promotions',
-    hasJsonLd: false,
-    jsonLdTypes: Object.freeze([]),
+    hasJsonLd: true,
+    // The crawlable DC deals collection no incumbent publishes: an ItemList
+    // of validity-bounded Offers + breadcrumb (field recon 2026-07-23).
+    jsonLdTypes: Object.freeze(['BreadcrumbList', 'ItemList', 'Offer']),
     inSitemap: true,
     hasCustomMetadata: true,
   }),

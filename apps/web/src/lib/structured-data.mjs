@@ -223,6 +223,48 @@ export function strainProductJsonLd({ strain, slug, recordCount, origin }) {
 }
 
 /**
+ * ItemList of verified, current deals for the DC deals index. This is the
+ * machine-readable deal COLLECTION no incumbent publishes: Weedmaps 406-walls
+ * its deal pages, Where's Weed hides them in a client-only SPA, and Leafly
+ * emits no deal validity data. Only publicly verified deals whose retailer is
+ * also publicly verified are included; each element carries validThrough so
+ * an AI agent can tell a live deal from an expired one. Returns null when
+ * nothing is eligible (no empty ItemList).
+ */
+export function dealItemListJsonLd({ deals, origin }) {
+  const eligible = (deals || []).filter(
+    (deal) =>
+      isPubliclyVerified(deal) &&
+      deal.retailer &&
+      isPubliclyVerified(deal.retailer),
+  );
+  if (eligible.length === 0) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Washington, D.C. cannabis deals',
+    numberOfItems: eligible.length,
+    itemListElement: eligible.map((deal, index) => {
+      const offer = {
+        '@type': 'Offer',
+        name: deal.title,
+        url: `${origin}/retailer/${deal.retailer.id}`,
+        seller: { '@id': `${origin}/retailer/${deal.retailer.id}#store` },
+        availability: 'https://schema.org/InStoreOnly',
+      };
+      if (deal.expiryDate?.toISOString) {
+        offer.validThrough = deal.expiryDate.toISOString();
+      }
+      return {
+        '@type': 'ListItem',
+        position: index + 1,
+        item: offer,
+      };
+    }),
+  };
+}
+
+/**
  * Offer schema for a verified, current deal. Demonstration/unverified deals
  * return null. No price is invented: deals carry discount descriptions, so
  * the Offer states name/description/validity/seller only.

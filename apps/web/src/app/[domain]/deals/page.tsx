@@ -6,6 +6,8 @@ import { currentDealWhere } from '@/lib/directory-search.mjs';
 import { buildPublicMetadata } from '@/lib/seo-meta.mjs';
 import { requestOrigin } from '@/lib/server-request-url';
 import {
+  breadcrumbJsonLd,
+  dealItemListJsonLd,
   dealOfferJsonLd,
   jsonLdScriptProps,
 } from '@/lib/structured-data.mjs';
@@ -85,9 +87,20 @@ export default async function DealsHubPage({ params }: Props) {
     .map((deal) => dealOfferJsonLd({ deal, retailer: deal.retailer, origin: origin.origin }))
     .filter((ld): ld is NonNullable<typeof ld> => ld !== null);
 
+  // Machine-readable deal COLLECTION — the crawlable DC deals index no
+  // incumbent publishes. Null when nothing is verified (no empty list).
+  const dealListLd = dealItemListJsonLd({ deals, origin: origin.origin });
+  const breadcrumbLd = breadcrumbJsonLd([
+    { name: 'Home', url: `${origin.origin}/` },
+    { name: 'Deals', url: `${origin.origin}/deals` },
+  ]);
+  const verifiedCount = offerLdItems.length;
+
   return (
     <div className="flex-grow animate-fade-in">
-      {/* Structured data for verified offers */}
+      {/* Structured data: breadcrumb, the deal collection, and each offer */}
+      {breadcrumbLd && <script {...jsonLdScriptProps(breadcrumbLd)} />}
+      {dealListLd && <script {...jsonLdScriptProps(dealListLd)} />}
       {offerLdItems.map((ld, i) => (
         <script key={i} {...jsonLdScriptProps(ld)} />
       ))}
@@ -107,6 +120,13 @@ export default async function DealsHubPage({ params }: Props) {
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-brand-muted">
                 Discover active promotional discounts, daily specials, and verified promo codes from D.C. licensed cannabis retailers.
+              </p>
+              <p className="mt-3 max-w-2xl text-xs leading-relaxed text-brand-muted/90">
+                Every deal shows an expiry date and a source label — and{' '}
+                {verifiedCount > 0 ? `${verifiedCount} ` : ''}verified offer
+                {verifiedCount === 1 ? '' : 's'} publish a machine-readable
+                validity window so search and AI assistants never surface an
+                expired promotion. We never reorder deals by who pays.
               </p>
             </div>
             <div className="text-right">
