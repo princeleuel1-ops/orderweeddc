@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0",
+  "required_cases": [
+    {
+      "attack": "fabricated_revenue",
+      "expected_outcome": "QUARANTINE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "duplicate_conversion",
+      "expected_outcome": "DEDUPLICATE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "bot_spam_lead",
+      "expected_outcome": "QUARANTINE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "poisoned_search_term",
+      "expected_outcome": "NOT_ESTABLISHED",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "hidden_policy_violation",
+      "expected_outcome": "INELIGIBLE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "altered_landing_page",
+      "expected_outcome": "ROLLBACK",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "stale_price_inventory",
+      "expected_outcome": "BLOCK",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "mismatched_destination",
+      "expected_outcome": "BLOCK",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "credential_substitution",
+      "expected_outcome": "DENY",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "approval_replay",
+      "expected_outcome": "DENY",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "budget_escalation",
+      "expected_outcome": "DENY_AND_KILL_SWITCH",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "attribution_window_manipulation",
+      "expected_outcome": "SEPARATE_SENSITIVITY_ONLY",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "refund_omission",
+      "expected_outcome": "SETTLEMENT_FAILURE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "selective_reporting",
+      "expected_outcome": "PROOF_PACKET_FAILURE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "fake_screenshot",
+      "expected_outcome": "VERIFY_LIVE_STATE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "forged_receipt",
+      "expected_outcome": "SIGNATURE_OR_CHAIN_FAILURE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "model_prompt_injection",
+      "expected_outcome": "ALLOWLIST_DENY",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "connector_compromise",
+      "expected_outcome": "REVOKE_AND_QUARANTINE",
+      "silent_pass_allowed": false
+    },
+    {
+      "attack": "deployment_equivocation",
+      "expected_outcome": "CRITICAL_INCIDENT",
+      "silent_pass_allowed": false
+    }
+  ]
+}
