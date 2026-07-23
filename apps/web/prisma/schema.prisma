@@ -5,6 +5,9 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
+  // native: local dev/test/build machines. rhel-openssl-*: CloudLinux
+  // (RHEL-family) shared hosting used by the Namecheap production target.
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "rhel-openssl-1.1.x"]
 }
 
 // Parent Holdings Organization

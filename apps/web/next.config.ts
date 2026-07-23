@@ -73,6 +73,12 @@ const privateSurfaceHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Deployment gate: standalone output is only enabled for artifact builds
+  // (Namecheap/cPanel Passenger). Local `next start` and the HTTP test
+  // battery keep the default server, so no test behavior changes.
+  ...(process.env.NEXT_OUTPUT === "standalone"
+    ? { output: "standalone" as const }
+    : {}),
   experimental: {
     serverActions: {
       bodySizeLimit: "32kb",

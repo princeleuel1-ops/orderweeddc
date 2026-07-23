@@ -3,7 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { parseAllowedRequestHost } from '../src/lib/host-policy.mjs';
+import {
+  isLoopbackHostname,
+  isStaticAssetPath,
+  parseAllowedRequestHost,
+  parseRequestAuthority,
+} from '../src/lib/host-policy.mjs';
 import {
   canonicalOriginForRequestHost,
   originForRequestHost,
@@ -191,4 +196,104 @@ test('structured data serialization neutralizes script termination payloads', ()
   assert.doesNotMatch(serialized, /<|>|&/);
   assert.match(serialized, /\\u003c\/script\\u003e/);
   assert.match(serialized, /A\\u0026B/);
+});
+
+test('www.orderweeddc.com is an allowed host that permanently redirects to the apex', () => {
+  // Parse: www must be inside the host allowlist (otherwise it would 421).
+  assert.deepEqual(parseAllowedRequestHost('www.orderweeddc.com'), {
+    hostname: 'www.orderweeddc.com',
+    port: '',
+    authority: 'www.orderweeddc.com',
+  });
+
+  // Behavior contract: the proxy consolidates www onto the canonical apex
+  // with a path-and-query-preserving 308 before any tenant routing.
+  const proxySource = fs.readFileSync(
+    path.join(webRoot, 'src/proxy.ts'),
+    'utf8',
+  );
+  const wwwRedirect = proxySource.indexOf("host === 'www.orderweeddc.com'");
+  const tenantRewrite = proxySource.indexOf(
+    'tenantDomainForRequestHostname(host)',
+  );
+  assert.ok(wwwRedirect >= 0, 'www redirect must exist in the proxy');
+  assert.ok(
+    wwwRedirect < tenantRewrite,
+    'www consolidation must run before tenant routing',
+  );
+  assert.match(proxySource, /url\.pathname \+ url\.search, 'https:\/\/orderweeddc\.com'/);
+  assert.match(proxySource, /308/);
+});
+
+test('standalone loopback re-entry is scoped: loopback host AND allowlisted tenant prefix only', () => {
+  // Loopback triage helpers behave exactly as the proxy relies on.
+  assert.equal(isLoopbackHostname('localhost'), true);
+  assert.equal(isLoopbackHostname('127.0.0.1'), true);
+  assert.equal(isLoopbackHostname('orderweeddc.com'), false);
+  assert.deepEqual(parseRequestAuthority('localhost:3000'), {
+    hostname: 'localhost',
+    port: '3000',
+  });
+
+  // Plain localhost still fails the public allowlist: the re-entry branch
+  // is the ONLY path a loopback request can take, and it requires the
+  // rewritten tenant prefix to itself be an allowlisted hostname.
+  assert.equal(parseAllowedRequestHost('localhost:3000'), null);
+
+  const proxySource = fs.readFileSync(
+    path.join(webRoot, 'src/proxy.ts'),
+    'utf8',
+  );
+  const reentry = proxySource.indexOf('isLoopbackHostname(rawAuthority.hostname)');
+  const hostValidation = proxySource.indexOf(
+    'parseAllowedRequestHost(hostnameHeader)',
+  );
+  assert.ok(reentry >= 0, 'loopback re-entry branch must exist');
+  assert.ok(
+    reentry < hostValidation,
+    're-entry triage must run before the public host gate',
+  );
+  assert.match(
+    proxySource,
+    /parseAllowedRequestHost\(tenantPrefix\)/,
+    'the tenant prefix of a loopback re-entry must be allowlist-validated',
+  );
+});
+
+test('static-asset passthrough is extension-scoped, not any-dot: hostname paths are tenant-routed', () => {
+  // Real root static files / file-routes pass through.
+  for (const asset of [
+    '/sitemap.xml',
+    '/robots.txt',
+    '/llms.txt',
+    '/og-default.jpg',
+    '/icon-192.png',
+    '/manifest.webmanifest',
+    '/fonts/inter-var-latin.woff2',
+  ]) {
+    assert.equal(isStaticAssetPath(asset), true, asset);
+  }
+  // Hostname-shaped and ordinary content paths do NOT pass through, so the
+  // proxy tenant-routes them instead of exposing the [domain] route.
+  for (const contentPath of [
+    '/wellness.localhost',
+    '/luxury.localhost',
+    '/orderweeddc.com',
+    '/',
+    '/pricing',
+    '/products',
+  ]) {
+    assert.equal(isStaticAssetPath(contentPath), false, contentPath);
+  }
+
+  const proxySource = fs.readFileSync(
+    path.join(webRoot, 'src/proxy.ts'),
+    'utf8',
+  );
+  assert.match(proxySource, /isStaticAssetPath\(url\.pathname\)/);
+  assert.doesNotMatch(
+    proxySource,
+    /url\.pathname\.includes\('\.'\)/,
+    'the broad any-dot passthrough must be gone',
+  );
 });
