@@ -11,6 +11,7 @@ import {
 import {
   articleJsonLd,
   breadcrumbJsonLd,
+  dealItemListJsonLd,
   dealOfferJsonLd,
   faqJsonLd,
   jsonLdScriptProps,
@@ -234,4 +235,51 @@ test('dealOfferJsonLd requires both deal and retailer to pass verification', () 
     }),
     null,
   );
+});
+
+test('dealItemListJsonLd emits a machine-readable collection of only verified deals', () => {
+  const future = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const base = {
+    dataStatus: 'VERIFIED_CURRENT',
+    isDemonstration: false,
+    verifiedAt: new Date('2026-07-01T00:00:00Z'),
+    freshnessExpiresAt: future,
+  };
+  const verifiedDeal = {
+    ...base,
+    title: '20% off first order',
+    expiryDate: future,
+    retailer: verifiedRetailer(),
+  };
+  const demoDeal = {
+    ...base,
+    dataStatus: 'DEMONSTRATION_ONLY',
+    isDemonstration: true,
+    title: 'Demo offer',
+    expiryDate: future,
+    retailer: verifiedRetailer(),
+  };
+  const staleRetailerDeal = {
+    ...base,
+    title: 'Verified deal, stale store',
+    expiryDate: future,
+    retailer: verifiedRetailer({ dataStatus: 'STALE' }),
+  };
+
+  const list = dealItemListJsonLd({
+    deals: [verifiedDeal, demoDeal, staleRetailerDeal],
+    origin: ORIGIN,
+  });
+  assert.equal(list['@type'], 'ItemList');
+  assert.equal(list.numberOfItems, 1); // only the fully-verified deal
+  assert.equal(list.itemListElement.length, 1);
+  assert.equal(list.itemListElement[0].position, 1);
+  assert.equal(list.itemListElement[0].item['@type'], 'Offer');
+  assert.equal(list.itemListElement[0].item.validThrough, future.toISOString());
+  // No price is ever invented on a deal offer.
+  assert.equal(list.itemListElement[0].item.price, undefined);
+
+  // Empty/unverified inputs yield null, never an empty ItemList.
+  assert.equal(dealItemListJsonLd({ deals: [], origin: ORIGIN }), null);
+  assert.equal(dealItemListJsonLd({ deals: [demoDeal], origin: ORIGIN }), null);
 });

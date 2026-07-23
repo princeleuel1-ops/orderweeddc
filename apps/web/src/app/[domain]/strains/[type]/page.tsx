@@ -119,6 +119,61 @@ export default async function StrainTypePage({ params }: Props) {
               Find retailers
             </Link>
           </div>
+
+          {/* Marketing-convention axis (adapted from Leafly's effect scale,
+              recast honestly): shows where the INDUSTRY MARKETS this label,
+              never a predicted effect. Hidden for types without an axis. */}
+          {typeof strain.marketedAxis === 'number' && (
+            <div className="mt-8 max-w-md">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-brand-muted">
+                <span>Marketed as calming</span>
+                <span>Marketed as energizing</span>
+              </div>
+              <div
+                className="relative mt-2 h-2 rounded-full bg-gradient-to-r from-indigo-300/60 via-brand-raised to-amber-300/70"
+                role="img"
+                aria-label={`${strain.name} is conventionally marketed ${
+                  strain.marketedAxis >= 60
+                    ? 'toward the energizing end'
+                    : strain.marketedAxis <= 40
+                      ? 'toward the calming end'
+                      : 'in the middle'
+                } of the industry axis. This describes marketing convention, not a predicted effect.`}
+              >
+                <span
+                  className="absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-brand-primary shadow"
+                  style={{ left: `${strain.marketedAxis}%` }}
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-brand-muted/80">
+                Industry marketing convention only — labels do not predict
+                effects. Tested cannabinoid and terpene content is a better
+                guide.
+              </p>
+            </div>
+          )}
+
+          {/* Shop this label by format (record-backed filters, not claims). */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
+              Shop {strain.name.toLowerCase()} by format:
+            </span>
+            {[
+              ['Flower', 'flower'],
+              ['Vapes', 'vapes'],
+              ['Pre-rolls', 'pre-rolls'],
+              ['Edibles', 'edibles'],
+            ].map(([label, category]) => (
+              <Link
+                key={category}
+                href={`/products?strainType=${type}&category=${encodeURIComponent(category)}`}
+                className="inline-flex items-center rounded-full border border-brand-border bg-brand-surface px-3 py-1 text-[11px] font-bold text-brand-muted transition-colors hover:border-brand-primary/50 hover:text-brand-primary"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 

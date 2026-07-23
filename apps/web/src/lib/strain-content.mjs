@@ -7,6 +7,10 @@
 export const STRAIN_TYPES = {
   sativa: {
     name: 'Sativa',
+    // Position on the industry-marketing axis (0 = marketed as calming,
+    // 100 = marketed as energizing). Describes MARKETING CONVENTION, not a
+    // predicted effect — the page's disclaimer applies.
+    marketedAxis: 82,
     headline: 'Sativa cannabis in Washington, D.C.',
     summary:
       'Sativa is an industry label historically applied to taller, narrow-leaf cannabis varieties. Products labeled sativa are commonly marketed toward daytime use, though modern research shows labels alone do not reliably predict effects — cannabinoid and terpene content matter more.',
@@ -30,6 +34,7 @@ export const STRAIN_TYPES = {
   },
   indica: {
     name: 'Indica',
+    marketedAxis: 18,
     headline: 'Indica cannabis in Washington, D.C.',
     summary:
       'Indica is an industry label historically applied to shorter, broad-leaf cannabis varieties. Products labeled indica are commonly marketed toward evening use, though effect labels are not guarantees — tested cannabinoid and terpene content is a better guide.',
@@ -53,6 +58,7 @@ export const STRAIN_TYPES = {
   },
   hybrid: {
     name: 'Hybrid',
+    marketedAxis: 50,
     headline: 'Hybrid cannabis in Washington, D.C.',
     summary:
       'Most modern cannabis is genetically hybrid. The hybrid label signals a mix of parent lineages; menus often sub-label products as sativa- or indica-leaning, which remains a marketing shorthand rather than a measured effect.',
@@ -71,6 +77,9 @@ export const STRAIN_TYPES = {
   },
   cbd: {
     name: 'CBD',
+    // CBD-forward products are marketed on potency profile, not the
+    // calming/energizing axis; no axis is displayed for this type.
+    marketedAxis: null,
     headline: 'CBD-dominant cannabis in Washington, D.C.',
     summary:
       'CBD-dominant products contain more cannabidiol than THC. CBD is non-intoxicating at typical doses, but products may still contain THC — check the tested percentages on each record. Nothing on this page is medical advice.',

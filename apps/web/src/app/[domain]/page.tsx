@@ -17,6 +17,7 @@ import { CANONICAL_TENANT_DOMAIN } from '@/lib/tenant-host.mjs';
 import { PUBLIC_PRODUCT_DESCRIPTION } from '@/lib/product-brand';
 import { currentPublicRecordWhere } from '@/lib/seo-truth.mjs';
 import { isPubliclyVerified } from '@/lib/data-status.mjs';
+import { relativeFreshnessLabel } from '@/lib/freshness.mjs';
 import {
   jsonLdScriptProps,
   retailerItemListJsonLd,
@@ -520,6 +521,22 @@ export default async function TenantHomePage({ params, searchParams }: Props) {
                         Source: {retailer.dataSource}
                       </span>
                     </div>
+
+                    {/* Loud relative freshness (evidence-only: renders nothing
+                        when no verification was ever recorded, and never on
+                        demonstration or stale records). */}
+                    {isPubliclyVerified(retailer) &&
+                      relativeFreshnessLabel({
+                        verifiedAt: retailer.verifiedAt,
+                        freshnessExpiresAt: retailer.freshnessExpiresAt,
+                      }) && (
+                      <p className="evidence-mono text-brand-primary/90">
+                        {relativeFreshnessLabel({
+                          verifiedAt: retailer.verifiedAt,
+                          freshnessExpiresAt: retailer.freshnessExpiresAt,
+                        })}
+                      </p>
+                    )}
 
                     {/* Record-backed service chips (no invented amenities) */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">

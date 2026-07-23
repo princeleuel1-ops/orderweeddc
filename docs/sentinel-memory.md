@@ -48,3 +48,30 @@ Verified production state to preserve: app root ~/apps/orderweeddc/current;
 DB ~/orderweeddc-data/prod.db (outside releases, hash-guarded); artifact
 orderweeddc-c1e8ac7.tar.gz sha 0764fa6f…; bundler webpack; verifiedRetailers 0
 is EXPECTED (awaiting verification is honest labeling, not a defect).
+
+## 2026-07-23 — Shadow Loop instituted (continuous competitor watch → ship-it-better)
+
+Founder directive: watch competitors' every move (updates, additions, ads) and
+whenever they ship something (already validated by their own spend), detect it,
+personalize it to us, and implement a 10-100X better version — never copy.
+
+Mechanism: apps/web/scripts/competitor-shadow.mjs fingerprints 15 public
+surfaces (Leafly/Weedmaps/Where's Weed: robots, llm(s).txt, sitemap indexes,
+business/DC page titles+status) and diffs vs the prior committed snapshot in
+docs/competitive/shadow/. Doctrine: docs/competitive/shadow/SHADOW_LOOP.md.
+Baseline snapshot 2026-07-23 captured (15 surfaces).
+
+Rules (cite by ID):
+- **OWD-S1** Weekly (EARN): run the shadow engine; triage every delta as
+  ADOPT-BETTER / COUNTER / IGNORE / ESCALATE; commit the new snapshot.
+- **OWD-S2** No ADOPT-BETTER ships at parity — each carries a NAMED better-than
+  delta on truth, machine-readability, DC-specificity, or honesty UX (the
+  10-100X rule). Log the delta in the report + this memory.
+- **OWD-S3** Never adopt an anti-pattern to match a rival (fake reviews,
+  unlabeled sponsorship, medical claims, dark patterns). Truth laws outrank
+  parity.
+- **OWD-S4** ESCALATE to founder if a rival adopts license verification, scales
+  DC neighborhood pages, opens AI-crawler access to core data, or emits
+  verification/provenance schema — these threaten our moat.
+- **OWD-S5** Public robots-permitted surfaces only; one GET per surface; never
+  reproduce competitor content — re-implement from scratch.

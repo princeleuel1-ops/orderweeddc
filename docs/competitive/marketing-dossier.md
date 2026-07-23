@@ -429,3 +429,29 @@ Machine-readable summary of JSON-LD types emitted per page type — seed for Sit
 ---
 
 *End of dossier. File: /agent/workspace/competitors/marketing-dossier.md*
+
+---
+
+## 2026-07-23 field-recon corrections (live crawl — supersedes earlier estimates)
+
+Three incumbents re-crawled 2026-07-23 (browser + curl). Details:
+docs/competitive/leafly-field-recon-2026-07-23.md and
+docs/competitive/weedmaps-wheresweed-field-recon-2026-07-23.md. Contract
+values live in apps/web/src/lib/sitemind.mjs (observedAt 2026-07-23).
+
+Key corrections to prior intelligence:
+- **Weedmaps DID NOT delist DC.** 30 I-71 storefronts live; 28 in a fresh
+  sitemap. What changed: legacy short-form DC URLs now 404; zero DC deal pages
+  indexed. Partial demotion, not delisting. Page title says "Self-Certify".
+- **Weedmaps 406-walls every listing page** to all fetchers (any UA) — its
+  core data is invisible to AI answer engines despite a novel LLMTXT directive.
+- **Leafly displays ABCA license numbers** (self-attested, not verified, not in
+  JSON-LD) and blocks GPTBot from core data except 26 affiliate articles.
+- **Where's Weed is the most direct DC competitor**: DC-native, deep delivery
+  review moat (top merchants 1.5k-4.4k reviews), but a Vite SPA (crawler-
+  invisible beyond a top-10 JSON-LD list) with a 404'd /add-business page.
+
+Universal across all three: pricing hidden behind sales/media-kit; no real
+license verification; no crawlable, validity-bounded DC deals collection.
+Those three are exactly orderweeddc's shipped differentiators (published
+pricing, registry verification + provenance JSON-LD, and the /deals ItemList).

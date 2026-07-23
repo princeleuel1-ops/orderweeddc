@@ -449,17 +449,24 @@ test('COMPETITOR_PARITY_CONTRACT is frozen and cites a source with observed date
     Object.isFrozen(COMPETITOR_PARITY_CONTRACT.facts.weedmaps),
     'COMPETITOR_PARITY_CONTRACT.facts.weedmaps must be frozen',
   );
+  assert.ok(
+    Object.isFrozen(COMPETITOR_PARITY_CONTRACT.facts.wheresweed),
+    'COMPETITOR_PARITY_CONTRACT.facts.wheresweed must be frozen',
+  );
 
-  assert.equal(
+  assert.match(
     COMPETITOR_PARITY_CONTRACT.source,
-    'competitors/marketing-dossier.md',
-    'contract must cite the dossier source',
+    /field-recon/,
+    'contract must cite its recon source',
   );
   assert.equal(
     COMPETITOR_PARITY_CONTRACT.observedAt,
-    '2026-07-22',
-    'contract must cite observation date 2026-07-22',
+    '2026-07-23',
+    'contract must cite the latest field-recon observation date',
   );
+  // Corrections from field recon: the Weedmaps DC delisting did NOT happen.
+  assert.equal(COMPETITOR_PARITY_CONTRACT.facts.weedmaps.dcDelisted, false);
+  assert.equal(COMPETITOR_PARITY_CONTRACT.facts.wheresweed.serverSideRendered, false);
 
   // Verify known competitor fact values
   assert.equal(COMPETITOR_PARITY_CONTRACT.facts.weedmaps.dcNeighborhoodPages, 17);
