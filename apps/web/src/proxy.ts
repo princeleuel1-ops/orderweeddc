@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { parseAllowedRequestHost } from '@/lib/host-policy.mjs';
+import {
+  isLoopbackHostname,
+  isStaticAssetPath,
+  parseAllowedRequestHost,
+  parseRequestAuthority,
+} from '@/lib/host-policy.mjs';
 import {
   isCanonicalPlatformHostname,
   tenantDomainForRequestHostname,
@@ -61,6 +66,23 @@ function closedHostResponse(title: string, message: string) {
 export function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
   const hostnameHeader = request.headers.get('host');
+
+  // Standalone re-entry pass-through: the Node standalone server resolves
+  // a middleware rewrite by re-dispatching it internally over loopback,
+  // so pass two arrives with Host localhost:<port> and a path that
+  // already carries the tenant prefix produced by pass one. Let exactly
+  // that shape through untouched. External traffic can never legitimately
+  // present a loopback Host (the front proxy routes by public vhost), and
+  // the tenant prefix must itself be an allowlisted hostname, so this
+  // cannot be used to reach a tenant that pass one would have refused.
+  const rawAuthority = parseRequestAuthority(hostnameHeader);
+  if (rawAuthority && isLoopbackHostname(rawAuthority.hostname)) {
+    const tenantPrefix = url.pathname.split('/')[1] ?? '';
+    if (tenantPrefix && parseAllowedRequestHost(tenantPrefix)) {
+      return NextResponse.next();
+    }
+  }
+
   const requestHost = parseAllowedRequestHost(hostnameHeader);
   if (!requestHost) {
     return new NextResponse('The requested host is not configured.', {
@@ -72,6 +94,13 @@ export function proxy(request: NextRequest) {
     });
   }
   const { hostname: host, port } = requestHost;
+
+  // Canonical-host consolidation: www permanently redirects to the apex,
+  // preserving path and query, so exactly one public origin exists.
+  if (host === 'www.orderweeddc.com') {
+    const canonicalUrl = new URL(url.pathname + url.search, 'https://orderweeddc.com');
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
 
   // Exclude internal Next.js files and public assets from tenant routing.
   if (
@@ -97,7 +126,12 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  if (url.pathname.startsWith('/api') || url.pathname.includes('.')) {
+  // Passthrough API routes and genuine static assets only. A path is a
+  // static asset only when its final segment ends in a known file
+  // extension — NOT merely because it contains a dot. This prevents a
+  // hostname-shaped path (e.g. "/wellness.localhost") from bypassing
+  // tenant routing and addressing the [domain] route directly.
+  if (url.pathname.startsWith('/api') || isStaticAssetPath(url.pathname)) {
     return NextResponse.next();
   }
 

@@ -192,8 +192,16 @@ export function normalizedTextBytes(value) {
 
 function isolatedPrismaSchema(value) {
   const source = value.toString('utf8').replaceAll('\r\n', '\n');
-  const generatorPattern = /generator client \{\s*provider = "prisma-client-js"\s*\}/;
-  if (!generatorPattern.test(source)) {
+  // The production generator may declare additional deployment directives
+  // (e.g. binaryTargets for CloudLinux/RHEL hosting). The benchmark only
+  // requires the prisma-client-js provider; it substitutes its own
+  // isolated generator block regardless of those extra directives.
+  const generatorPattern =
+    /generator client \{\s*provider = "prisma-client-js"[\s\S]*?\n\}/;
+  if (
+    !generatorPattern.test(source) ||
+    !/provider = "prisma-client-js"/.test(source)
+  ) {
     throw new TypeError('The Prisma client generator contract has changed.');
   }
   return source.replace(
