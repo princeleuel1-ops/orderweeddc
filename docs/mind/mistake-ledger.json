@@ -1,0 +1,133 @@
+{
+  "$schema": "internal:mistake-ledger/v1",
+  "doctrine": "Learn from others' mistakes more than our own. Every entry converts an OBSERVED external failure into a law and a guard BEFORE it can bite us. Own-incident entries are the exception that prove the cost of learning first-hand.",
+  "updated": "2026-07-23",
+  "entries": [
+    {
+      "id": "VIC-001",
+      "source": "competitor",
+      "actor": "Leafly",
+      "mistake": "Stale SEO titles: 'Best Hybrid Strains of 2025' served in July 2026; homepage claims 39 DC dispensaries while the listing page returns 48.",
+      "evidence": "Field recon 2026-07-23 (leafly-field-recon-2026-07-23.md)",
+      "law": "Every displayed count and dated claim must be query-derived at render time; nothing user-visible is hardcoded to a year or a count.",
+      "guard": { "status": "SHIPPED", "reference": "All directory counts render from prisma counts; freshness labels are computed from verifiedAt at request time (src/lib/freshness.mjs)." }
+    },
+    {
+      "id": "VIC-002",
+      "source": "competitor",
+      "actor": "Where's Weed",
+      "mistake": "Revenue-critical merchant signup (/add-business) is a hard 404; their supply-side funnel has been broken in public.",
+      "evidence": "Field recon 2026-07-23 (weedmaps-wheresweed-field-recon-2026-07-23.md)",
+      "law": "Revenue-critical funnels get synthetic end-to-end checks; a broken funnel is a release-gate failure, not a support ticket.",
+      "guard": { "status": "SHIPPED", "reference": "http-public-write-check.mjs + http-business-check.mjs exercise claim/correction/login flows every gate run." }
+    },
+    {
+      "id": "VIC-003",
+      "source": "competitor",
+      "actor": "Weedmaps",
+      "mistake": "Anti-bot wall returns 406 on ALL listing/deal pages to every non-browser fetcher — making their core data invisible to AI answer engines while they simultaneously publish an llm.txt inviting AI in.",
+      "evidence": "Live curl matrix, field recon 2026-07-23; llm.txt exists (10.3KB) yet its linked pages 406.",
+      "law": "AI-visibility must be verified END-TO-END (fetchability of the actual data), never assumed from the presence of policy files. Never deploy bot protection that breaks machine-readability of public data.",
+      "guard": { "status": "SHIPPED", "reference": "test:http fetches public pages with raw HTTP (no cookies/JS) and asserts 200 + content; llms.txt served and asserted." }
+    },
+    {
+      "id": "VIC-004",
+      "source": "competitor",
+      "actor": "Leafly",
+      "mistake": "Blanket GPTBot block with 26 hand-picked affiliate re-allows — surrendering AI-answer-engine presence for core data while feeding only commission content.",
+      "evidence": "robots.txt fetched 2026-07-23; shadow baseline hash recorded.",
+      "law": "Crawler policy is strategy and gets re-derived each SENSE cycle from measured referral value; answer-engine bots that cite us stay allowed, training-only bots stay blocked.",
+      "guard": { "status": "SHIPPED", "reference": "robots.ts four-bot split + guard test; shadow engine hashes competitor robots for policy-shift detection." }
+    },
+    {
+      "id": "VIC-005",
+      "source": "competitor",
+      "actor": "Leafly",
+      "mistake": "5.0-star ratings displayed at full visual weight from samples of 1-22 reviews under the headline 'authentic reviews' — statistically hollow social proof.",
+      "evidence": "DC listing screenshots 2026-07-23; Holistic District 5.0 from 1 review.",
+      "law": "No unverifiable or statistically hollow social proof, ever. Display nothing rather than a misleading number.",
+      "guard": { "status": "SHIPPED", "reference": "Truth law: no synthetic ratings; structured-data tests assert aggregateRating is never emitted for our records." }
+    },
+    {
+      "id": "VIC-006",
+      "source": "competitor",
+      "actor": "Where's Weed",
+      "mistake": "Maryland/Virginia businesses bleed into 'Washington DC' surfaces (109 claimed DC dispensaries, ~10-15 真 DC) — geographic dilution that erodes local trust.",
+      "evidence": "Field recon 2026-07-23: Trulieve Halethorpe 31mi, Greenwave 50mi in DC results.",
+      "law": "Geographic integrity is absolute: the DC universe is ABCA-registry-derived; no out-of-district records ever enter DC surfaces.",
+      "guard": { "status": "SHIPPED", "reference": "Universe seeded exclusively from DC ABCA registry (seed-abca-retailers.mjs); tenant isolation + bounded-search checks." }
+    },
+    {
+      "id": "VIC-007",
+      "source": "competitor",
+      "actor": "Leafly",
+      "mistake": "High-intent consumer URL /strains redirects visitors to a B2B advertising pitch — sacrificing user trust and organic intent for a sales funnel.",
+      "evidence": "Field recon 2026-07-23: leafly.com/strains -> 'Retail Solutions For Your Dispensary'.",
+      "law": "Consumer-intent URLs are never repurposed for B2B capture; canonical surfaces keep their promise.",
+      "guard": { "status": "SHIPPED", "reference": "Canonical literals guard-tested per route (selfCanonicalPublicRoutes in http-truth-check); /strains serves strain content." }
+    },
+    {
+      "id": "VIC-008",
+      "source": "competitor",
+      "actor": "Leafly + Weedmaps + Where's Weed",
+      "mistake": "Deal surfaces without expiry dates or verification (Leafly), zero indexed DC deal pages (Weedmaps), 404 deals hub + '0 deals claimed' on top merchants (Where's Weed) — stale-deal ambiguity everywhere.",
+      "evidence": "Field recon 2026-07-23, all three reports.",
+      "law": "Time-bounded claims must display their validity window and machine-readable validThrough; expired-but-active deals are a failing health check.",
+      "guard": { "status": "SHIPPED", "reference": "Deal.expiryDate required in schema; deals page shows expiry + freshness; dealItemListJsonLd emits validThrough; sitemind deal-freshness check FAILs on expired-active." }
+    },
+    {
+      "id": "VIC-009",
+      "source": "competitor",
+      "actor": "Weedmaps",
+      "mistake": "Migrated DC URLs to a new hierarchy and let ALL legacy short-form city URLs 404 — orphaning years of backlinks and search equity.",
+      "evidence": "Field recon 2026-07-23: /dispensaries/in/district-of-columbia and /washington-dc both 404.",
+      "law": "URL migrations always ship 301/308 maps; no public URL is ever abandoned to 404.",
+      "guard": { "status": "SHIPPED", "reference": "www→apex 308 path-preserving redirect + REDIRECT_MAP pattern in proxy.ts; any future path change must extend it (guard-tested)." }
+    },
+    {
+      "id": "VIC-010",
+      "source": "competitor",
+      "actor": "Leafly",
+      "mistake": "Editorial strain copy makes unlabeled medical claims ('patients often use Blue Dream to treat...') with only a site-footer FDA disclaimer — regulatory exposure baked into content.",
+      "evidence": "Blue Dream page, field recon 2026-07-23.",
+      "law": "No medical claims in any copy, editorial or merchant-supplied; effect language is labeled as marketing convention with inline disclaimers.",
+      "guard": { "status": "SHIPPED", "reference": "Strain pages carry inline not-medical-advice captions; ad-creative verification scans FORBIDDEN_CLAIMS; guard tests forbid truth-claim regressions." }
+    },
+    {
+      "id": "VIC-011",
+      "source": "industry",
+      "actor": "Leafly (corporate)",
+      "mistake": "SPAC-fueled expansion ahead of unit economics: public listing collapsed ~99% and the company deregistered — growth spending outran durable revenue.",
+      "evidence": "docs/competitive/corporate-history.md (filings + press).",
+      "law": "Sequencing law: no paid-placement auctions, payment rails, or expansion spend before $20K MRR of proven merchant revenue; external-spend-zero until then.",
+      "guard": { "status": "SHIPPED", "reference": "Sequencing + external-spend-zero laws in sentinel doctrine; EARN cycle reports against them." }
+    },
+    {
+      "id": "VIC-012",
+      "source": "industry",
+      "actor": "Weedmaps (corporate)",
+      "mistake": "Opaque enterprise pricing (~$2,805/mo average) with sales-gated onboarding in an SMB market — paying-client counts declined while small operators churned or never signed.",
+      "evidence": "docs/competitive/corporate-history.md; business-surface recon 2026-07-23 (no public pricing, contact-sales).",
+      "law": "Small-merchant markets demand published pricing and same-day self-serve; the sales-call wall is a competitor gift we never build.",
+      "guard": { "status": "SHIPPED", "reference": "/pricing published rate card; self-serve claim flow; outreach doctrine quotes their walls." }
+    },
+    {
+      "id": "VIC-013",
+      "source": "industry",
+      "actor": "Weedmaps (corporate)",
+      "mistake": "Years of unlicensed-seller listings created regulatory blowback and a forced purge (the 'Report an Unlicensed CA Seller' footer link is the scar tissue).",
+      "evidence": "Footer observed 2026-07-23; corporate-history.md (CA purge).",
+      "law": "Verification-first data model: unverified records are labeled AWAITING_VERIFICATION and never presented as verified; platform never vouches for what it has not checked.",
+      "guard": { "status": "SHIPPED", "reference": "dataStatus chain + isPubliclyVerified gates every public claim, JSON-LD, and ad; guard tests forbid self-certification." }
+    },
+    {
+      "id": "OWN-001",
+      "source": "own",
+      "actor": "orderweeddc (the exception that proves the rule)",
+      "mistake": "Turbopack standalone artifact shipped with an unresolvable hashed Prisma external; a repo-contaminated smoke test masked it. Cost: ~2 hours of founder terminal time and 4 failed production attempts.",
+      "evidence": "docs/postmortems/2026-07-23-namecheap-next16-prisma-artifact-incident.md",
+      "law": "OWD-D1..D8 (isolation-first artifact proof, hypothesis!=proof, DB-hash guard, live GitHub state, command-path discipline).",
+      "guard": { "status": "SHIPPED", "reference": "Webpack-only builder + unresolved-external scan + true-isolation runtime test + verify-and-deploy.sh + deployment-integrity tests." }
+    }
+  ]
+}

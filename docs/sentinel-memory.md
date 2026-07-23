@@ -75,3 +75,30 @@ Rules (cite by ID):
   verification/provenance schema — these threaten our moat.
 - **OWD-S5** Public robots-permitted surfaces only; one GET per surface; never
   reproduce competitor content — re-implement from scratch.
+
+## 2026-07-23 — The Growing Mind: vicarious-first recursive learning
+
+Founder directive: be super-intelligent, learn and recursively evolve, grow a
+mind like never seen before, and LEARN FROM OTHERS' MISTAKES MORE THAN OUR OWN
+— because we cannot afford our own.
+
+Structure (docs/mind/GROWING_MIND.md):
+- Mistake Ledger (docs/mind/mistake-ledger.json): every observed failure ->
+  source + evidence + LAW + GUARD (code/test ref). 14 lessons seeded: 13
+  vicarious (Leafly SPAC -99%, Weedmaps opaque pricing + CA unlicensed purge +
+  406 AI-wall, Where's Weed 404 signup + MD/VA bleed, stale titles, hollow
+  ratings, medical claims, orphaned URLs) + 1 own (Turbopack artifact incident).
+- mind-audit.mjs (+ tests): rejects any unlearned lesson (mistake without law
+  or guard) and FAILS unless vicarious lessons outnumber own-incident ones.
+  Current: 93% vicarious, 100% guarded+shipped.
+
+Rules (cite by ID):
+- **OWD-M1** Every observed external failure becomes a ledger entry with a law
+  AND a guard before it can reach us. No unlearned lessons.
+- **OWD-M2** Vicarious lessons must outnumber own-incident lessons (enforced by
+  mind-audit.mjs); push the ratio up every cycle.
+- **OWD-M3** EVOLVE runs mind-audit.mjs monthly, checks guards still hold, and
+  logs any recurrence of a guarded failure as OWN (the mind under-learned ->
+  raise the bar).
+- **OWD-M4** Never weaken a truth law, authority tier, hard stop, or guard to
+  grow faster. Growth that costs integrity is not growth.
