@@ -1,39 +1,99 @@
-// Same-origin tenant rewrite builder for the Passenger / LiteSpeed standalone runtime.
+// Passenger-safe tenant rewrite builder.
 //
-// WHY THIS EXISTS (production incident 2026-07-23):
-//   The tenant proxy previously rewrote `request.nextUrl`. Behind Phusion Passenger,
-//   request.nextUrl carries the FORWARDED protocol (https, from x-forwarded-proto) over the
-//   INTERNAL TCP host (localhost:3000). Passing that ABSOLUTE URL to NextResponse.rewrite()
-//   made Next treat it as a cross-origin target and PROXY to https://localhost:3000 — where no
-//   listener exists under Passenger — producing:
-//       x-middleware-rewrite: https://localhost:3000/orderweeddc.localhost
-//       Failed to proxy ... ECONNREFUSED ::1:3000 / 127.0.0.1:3000   → HTTP 500 on "/".
+// Production incident 2026-07-23:
+//   Next built the Proxy request URL as https://localhost:3000 even though
+//   Phusion Passenger had started the standalone server on a different
+//   loopback port. Rewriting that URL made Next proxy to an unbound listener
+//   and produced ECONNREFUSED / HTTP 500.
 //
-//   The fix builds the rewrite from the RAW INTERNAL request URL (request.url), which is the
-//   origin the standalone server actually serves. That keeps the rewrite SAME-ORIGIN, so Next
-//   resolves it in-process with no HTTP round trip and never assumes a TCP listener on :3000.
+// Important: request.url and request.nextUrl are derived from the same URL in
+// NextRequest, so switching between them does not repair a bad origin. The
+// production target must be built from Passenger's runtime PORT and a
+// validated loopback hostname. The existing second-pass guard in proxy.ts then
+// allows the tenant-prefixed request through when Next re-dispatches it over
+// loopback.
 
-/**
- * Build a same-origin internal rewrite URL for tenant routing.
- * @param {string} rawRequestUrl  request.url (the internal origin the server actually served)
- * @param {string} tenantDomain   allowlisted tenant domain, e.g. "orderweeddc.localhost"
- * @param {string} pathname       original request pathname (always begins with "/")
- * @param {string} [search]       original query string ("" or "?a=b")
- * @returns {URL}                 same-origin URL with the tenant segment prefixed
- */
-export function buildTenantRewriteUrl(rawRequestUrl, tenantDomain, pathname, search = '') {
-  if (!tenantDomain) throw new TypeError('tenantDomain required');
-  const internal = new URL(rawRequestUrl); // origin the standalone server actually serves
-  // Preserve the ORIGINAL prefixing behavior exactly: `/${tenant}${pathname}`.
-  internal.pathname = `/${tenantDomain}${pathname || '/'}`;
-  internal.search = search || '';
-  return internal;
+const TENANT_SEGMENT_PATTERN = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1']);
+
+function parseRuntimePort(value) {
+  const text = String(value ?? '').trim();
+  if (!/^[0-9]{1,5}$/.test(text)) return null;
+  const port = Number(text);
+  return Number.isInteger(port) && port >= 1 && port <= 65_535 ? port : null;
+}
+
+function normalizeLoopbackHostname(value) {
+  const candidate = String(value ?? '').trim().toLowerCase();
+  return LOOPBACK_HOSTNAMES.has(candidate) ? candidate : '127.0.0.1';
+}
+
+function loopbackAuthority(hostname, port) {
+  return hostname === '::1' ? `[::1]:${port}` : `${hostname}:${port}`;
+}
+
+function normalizedTenantPath(tenantDomain, pathname) {
+  if (
+    typeof tenantDomain !== 'string' ||
+    !TENANT_SEGMENT_PATTERN.test(tenantDomain)
+  ) {
+    throw new TypeError('A safe tenantDomain is required');
+  }
+
+  const sourcePath =
+    typeof pathname === 'string' && pathname.startsWith('/')
+      ? pathname
+      : '/';
+
+  return `/${tenantDomain}${sourcePath}`;
 }
 
 /**
- * True when a rewrite target would leave the internal origin (i.e. Next would PROXY it).
- * Used by tests and defensive assertions to guarantee we never self-proxy again.
+ * Build the tenant rewrite URL for Next.js running behind Passenger.
+ *
+ * In production, PORT is mandatory and the destination is pinned to a
+ * loopback address. This prevents the public Host or forwarded headers from
+ * turning the rewrite into SSRF and avoids the stale localhost:3000 origin.
+ *
+ * In development only, rawRequestUrl may be used as a same-origin fallback so
+ * `next dev` remains convenient when no PORT variable is exported.
  */
-export function rewriteTargetIsSelfProxy(rewriteUrlLike, rawRequestUrl) {
-  return new URL(rewriteUrlLike).origin !== new URL(rawRequestUrl).origin;
+export function buildTenantRewriteUrl({
+  tenantDomain,
+  pathname,
+  search = '',
+  runtimePort,
+  runtimeHostname,
+  rawRequestUrl,
+  production = process.env.NODE_ENV === 'production',
+}) {
+  const tenantPath = normalizedTenantPath(tenantDomain, pathname);
+  const port = parseRuntimePort(runtimePort);
+
+  let destination;
+  if (port) {
+    const hostname = normalizeLoopbackHostname(runtimeHostname);
+    destination = new URL(`http://${loopbackAuthority(hostname, port)}`);
+  } else if (!production && rawRequestUrl) {
+    destination = new URL(rawRequestUrl);
+    if (destination.protocol !== 'http:' && destination.protocol !== 'https:') {
+      throw new TypeError('Development rewrite origin must be HTTP(S)');
+    }
+  } else {
+    throw new Error('A valid Passenger PORT is required for production tenant rewrites');
+  }
+
+  destination.pathname = tenantPath;
+  destination.search = typeof search === 'string' ? search : '';
+  destination.hash = '';
+  return destination;
+}
+
+export function rewriteUsesUnboundDefaultPort(rewriteUrlLike) {
+  const target = new URL(rewriteUrlLike);
+  return (
+    target.protocol === 'https:' &&
+    target.hostname === 'localhost' &&
+    target.port === '3000'
+  );
 }

@@ -168,23 +168,40 @@ export function proxy(request: NextRequest) {
 
   // 3. Fallback to dynamic brand routing.
   //
-  // Build a SAME-ORIGIN internal rewrite from the RAW internal request URL
-  // (request.url) — NOT request.nextUrl. Behind Phusion Passenger / LiteSpeed,
-  // request.nextUrl carries the forwarded protocol (https, via x-forwarded-proto)
-  // over the internal TCP host (localhost:3000). Rewriting that ABSOLUTE URL made
-  // Next proxy to https://localhost:3000 — which has no listener under Passenger —
-  // yielding `x-middleware-rewrite: https://localhost:3000/orderweeddc.localhost`
-  // and `ECONNREFUSED ::1:3000 / 127.0.0.1:3000` → HTTP 500 on "/".
-  // Using request.url keeps the rewrite on the origin the standalone server
-  // actually serves, so Next resolves it in-process with no self-proxy and never
-  // assumes a TCP listener on port 3000.
+  // NextRequest exposes request.url and request.nextUrl from the same parsed URL.
+  // Under Passenger that URL was https://localhost:3000 even though Passenger
+  // launched this standalone server on a different dynamic loopback port. Merely
+  // switching from request.nextUrl to request.url therefore cannot fix the 500.
+  //
+  // Build the production rewrite from Passenger's runtime PORT and a validated
+  // loopback hostname. The existing loopback re-entry guard above then lets the
+  // tenant-prefixed second pass reach the [domain] route without recursion.
   const tenantDomain = tenantDomainForRequestHostname(host);
-  const rewriteUrl = buildTenantRewriteUrl(
-    request.url,
-    tenantDomain,
-    url.pathname,
-    url.search,
-  );
+
+  let rewriteUrl: URL;
+  try {
+    rewriteUrl = buildTenantRewriteUrl({
+      tenantDomain,
+      pathname: url.pathname,
+      search: url.search,
+      runtimePort: process.env.PORT,
+      runtimeHostname: process.env.HOSTNAME,
+      rawRequestUrl: request.url,
+      production: process.env.NODE_ENV === 'production',
+    });
+  } catch (error) {
+    console.error(
+      'Tenant rewrite configuration error:',
+      error instanceof Error ? error.message : 'unknown error',
+    );
+    return new NextResponse('The application is temporarily unavailable.', {
+      status: 503,
+      headers: {
+        ...NON_INDEXABLE_RESPONSE_HEADERS,
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+    });
+  }
 
   return NextResponse.rewrite(rewriteUrl);
 }
