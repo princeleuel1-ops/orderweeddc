@@ -10,26 +10,27 @@ import {
   isCanonicalPlatformHostname,
   tenantDomainForRequestHostname,
 } from '@/lib/tenant-host.mjs';
+import { buildTenantRewriteUrl } from '@/lib/tenant-rewrite.mjs';
 
 const REDIRECT_MAP: Record<string, string> = {
   'dmvweeddelivery.com': '/?type=delivery',
   'dmvweeddelivery.localhost': '/?type=delivery',
-  
+
   'weedneardc.com': '/',
   'weedneardc.localhost': '/',
-  
+
   'georgetowndispensarydc.com': '/neighborhoods/georgetown',
   'georgetowndispensarydc.localhost': '/neighborhoods/georgetown',
-  
+
   'dupontcircledispensarydc.com': '/neighborhoods/dupont-circle',
   'dupontcircledispensarydc.localhost': '/neighborhoods/dupont-circle',
-  
+
   'capitolhilldispensarydc.com': '/neighborhoods/capitol-hill',
   'capitolhilldispensarydc.localhost': '/neighborhoods/capitol-hill',
-  
+
   'ustreetdispensarydc.com': '/neighborhoods/u-street-shaw',
   'ustreetdispensarydc.localhost': '/neighborhoods/u-street-shaw',
-  
+
   'navyyarddispensarydc.com': '/neighborhoods/navy-yard-wharf',
   'navyyarddispensarydc.localhost': '/neighborhoods/navy-yard-wharf',
 };
@@ -158,19 +159,34 @@ export function proxy(request: NextRequest) {
   const redirectPath = REDIRECT_MAP[host];
   if (redirectPath) {
     const isLocal = host.endsWith('.localhost') || host === 'localhost';
-    const targetBase = isLocal 
+    const targetBase = isLocal
       ? `http://orderweeddc.localhost${port ? `:${port}` : ''}`
       : 'https://orderweeddc.com';
     const targetUrl = `${targetBase}${redirectPath}`;
     return NextResponse.redirect(new URL(targetUrl));
   }
 
-  // 3. Fallback to dynamic brand routing
-  // Rewrite request path to include the domain folder internally
+  // 3. Fallback to dynamic brand routing.
+  //
+  // Build a SAME-ORIGIN internal rewrite from the RAW internal request URL
+  // (request.url) — NOT request.nextUrl. Behind Phusion Passenger / LiteSpeed,
+  // request.nextUrl carries the forwarded protocol (https, via x-forwarded-proto)
+  // over the internal TCP host (localhost:3000). Rewriting that ABSOLUTE URL made
+  // Next proxy to https://localhost:3000 — which has no listener under Passenger —
+  // yielding `x-middleware-rewrite: https://localhost:3000/orderweeddc.localhost`
+  // and `ECONNREFUSED ::1:3000 / 127.0.0.1:3000` → HTTP 500 on "/".
+  // Using request.url keeps the rewrite on the origin the standalone server
+  // actually serves, so Next resolves it in-process with no self-proxy and never
+  // assumes a TCP listener on port 3000.
   const tenantDomain = tenantDomainForRequestHostname(host);
-  url.pathname = `/${tenantDomain}${url.pathname}`;
-  
-  return NextResponse.rewrite(url);
+  const rewriteUrl = buildTenantRewriteUrl(
+    request.url,
+    tenantDomain,
+    url.pathname,
+    url.search,
+  );
+
+  return NextResponse.rewrite(rewriteUrl);
 }
 
 // Config to limit where the middleware runs
