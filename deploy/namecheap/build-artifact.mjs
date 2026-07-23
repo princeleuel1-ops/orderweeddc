@@ -35,9 +35,23 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { assertReleaseReproducible } from './release-preflight.mjs';
+import { selectTestPrismaEngine } from './select-test-engine.mjs';
 
 const repoRoot = process.cwd();
 const webRoot = path.join(repoRoot, 'apps/web');
+
+// Pin the build/verify Node to the production runtime (Namecheap Node 20.20.2). A shell
+// wrapper resolving a different `node` (e.g. a Hermes v22 binary) invalidates the isolation
+// proof. Invoke the exact binary, e.g.:
+//   $HOME/.nvm/versions/node/v20.20.2/bin/node deploy/namecheap/build-artifact.mjs
+const REQUIRED_NODE = process.env.REQUIRED_NODE || 'v20.20.2';
+if (process.version !== REQUIRED_NODE && process.env.ALLOW_NODE_MISMATCH !== '1') {
+  throw new Error(
+    `Build requires Node ${REQUIRED_NODE} but is running ${process.version} at ${process.execPath}. ` +
+    `Invoke the exact binary ($HOME/.nvm/versions/node/${REQUIRED_NODE}/bin/node), ` +
+    `or set ALLOW_NODE_MISMATCH=1 to override (never for a release build).`,
+  );
+}
 
 function run(command, options = {}) {
   console.log(`\n$ ${command}`);
@@ -305,7 +319,7 @@ function writeReceipt(extra = {}) {
     // Hoisted monorepo: resolve through Node so root node_modules works.
     nextVersion: JSON.parse(
       fs.readFileSync(
-        capture(`node -e "console.log(require.resolve('next/package.json'))"`, {
+        capture(`${JSON.stringify(process.execPath)} -e "console.log(require.resolve('next/package.json'))"`, {
           cwd: webRoot,
         }),
         'utf8',
@@ -313,7 +327,7 @@ function writeReceipt(extra = {}) {
     ).version,
     prismaVersion: JSON.parse(
       fs.readFileSync(
-        capture(`node -e "console.log(require.resolve('@prisma/client/package.json'))"`, {
+        capture(`${JSON.stringify(process.execPath)} -e "console.log(require.resolve('@prisma/client/package.json'))"`, {
           cwd: webRoot,
         }),
         'utf8',
@@ -373,10 +387,27 @@ async function isolatedRuntimeTest() {
       !fs.existsSync(path.join(os.tmpdir(), 'node_modules')),
   );
 
+  // Platform-aware TEST engine. The production artifact ships and uses the Linux RHEL engine;
+  // this isolation test may run on macOS, where dlopen() of a Linux .so.node fails. Select the
+  // engine matching THIS machine from the artifact's own generated client dir and thread it
+  // through every isolated process. app.js only pins RHEL when PRISMA_QUERY_ENGINE_LIBRARY is
+  // unset, so overriding it here changes NOTHING about production behavior.
+  const prismaClientDir = path.join(appRoot, 'node_modules/.prisma/client');
+  const isoEngineFiles = fs.existsSync(prismaClientDir)
+    ? fs.readdirSync(prismaClientDir).filter((f) => f.includes('engine'))
+    : [];
+  const testEngine = selectTestPrismaEngine(isoEngineFiles, process.platform, process.arch);
+  const testEnginePath = path.join(prismaClientDir, testEngine);
+  record(
+    `native test engine selected for ${process.platform}/${process.arch}`,
+    fs.existsSync(testEnginePath),
+    testEngine,
+  );
+
   // Bootstrap a test database inside isolation (also exercises the script).
   const dataDir = path.join(isoRoot, 'data');
   run(
-    `OWD_DATA_DIR=${JSON.stringify(dataDir)} OWD_NODE=${JSON.stringify(process.execPath)} sh bootstrap-production-db.sh`,
+    `PRISMA_QUERY_ENGINE_LIBRARY=${JSON.stringify(testEnginePath)} OWD_DATA_DIR=${JSON.stringify(dataDir)} OWD_NODE=${JSON.stringify(process.execPath)} sh bootstrap-production-db.sh`,
     { cwd: appRoot },
   );
   const inspect = JSON.parse(
@@ -385,10 +416,7 @@ async function isolatedRuntimeTest() {
       env: {
         PATH: process.env.PATH,
         DATABASE_URL: `file:${path.join(dataDir, 'prod.db')}`,
-        PRISMA_QUERY_ENGINE_LIBRARY: path.join(
-          appRoot,
-          'node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node',
-        ),
+        PRISMA_QUERY_ENGINE_LIBRARY: testEnginePath,
       },
     }),
   );
@@ -408,6 +436,9 @@ async function isolatedRuntimeTest() {
     NODE_ENV: 'production',
     PORT: String(port),
     DATABASE_URL: `file:${path.join(dataDir, 'prod.db')}`,
+    // Test-only: app.js keeps its production RHEL pin when this is UNSET; here we
+    // supply the machine-native engine so the isolated app starts on macOS too.
+    PRISMA_QUERY_ENGINE_LIBRARY: testEnginePath,
   };
   const startServer = () =>
     spawn(process.execPath, ['app.js'], {
