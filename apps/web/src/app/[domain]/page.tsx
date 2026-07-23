@@ -16,6 +16,7 @@ import { PUBLIC_DEAL_PREVIEW_LIMIT } from '@/lib/retailer-detail-search.mjs';
 import { CANONICAL_TENANT_DOMAIN } from '@/lib/tenant-host.mjs';
 import { PUBLIC_PRODUCT_DESCRIPTION } from '@/lib/product-brand';
 import { currentPublicRecordWhere } from '@/lib/seo-truth.mjs';
+import { isPubliclyVerified } from '@/lib/data-status.mjs';
 import {
   jsonLdScriptProps,
   retailerItemListJsonLd,
@@ -442,7 +443,7 @@ export default async function TenantHomePage({ params, searchParams }: Props) {
                   key={retailer.id}
                   className={`record-card rounded-2xl p-5 flex flex-col md:flex-row gap-5 ${
                     retailer.isSponsored ? 'ring-1 ring-brand-gold/25' : ''
-                  }`}
+                  } ${isPubliclyVerified(retailer) ? 'record-card--verified' : ''}`}
                 >
                   {/* Retailer Thumbnail (illustrative artwork, not a photo of the business) */}
                   <div className="relative h-28 w-full shrink-0 overflow-hidden rounded-xl border border-brand-border md:h-32 md:w-44">

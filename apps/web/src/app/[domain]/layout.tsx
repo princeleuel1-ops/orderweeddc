@@ -28,6 +28,7 @@ const NAV_LINKS = [
   { href: '/education', label: 'Learn' },
   { href: '/neighborhoods', label: 'Neighborhoods' },
   { href: '/compare', label: 'Compare' },
+  { href: '/pricing', label: 'Pricing' },
 ];
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }) {
@@ -224,6 +225,7 @@ export default async function TenantLayout({ children, params }: { children: Rea
             <nav aria-label="For business">
               <p className="kicker mb-3">For business</p>
               <ul className="space-y-2 text-sm text-brand-muted">
+                <li><Link href="/pricing" className="transition-colors hover:text-brand-primary">Published pricing</Link></li>
                 <li><Link href="/business/claim" className="transition-colors hover:text-brand-primary">Claim your listing</Link></li>
                 <li><Link href={canonicalBusiness} className="transition-colors hover:text-brand-primary">Business portal</Link></li>
                 <li><Link href={canonicalAdmin} className="transition-colors hover:text-brand-primary">Admin portal</Link></li>

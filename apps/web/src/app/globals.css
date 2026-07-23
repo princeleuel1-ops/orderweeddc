@@ -260,3 +260,21 @@ h3 {
 .leaflet-popup-tip {
   border-radius: 12px;
 }
+
+/* Verified-card modifier: agentic-commerce visual-attributes treatment.
+   Research: "Visual Attributes of AI Agent Click-Through Rates" (2025) found
+   background contrast (+11.7% CTR), card scale, early position, and text
+   completeness are the top predictors of AI web-agent selection. This modifier
+   applies a subtly stronger background, a brand-primary border, and a gentle
+   scale on large screens to improve agent-readability of verified records. */
+.record-card--verified {
+  background: color-mix(in srgb, var(--brand-primary) 6%, white);
+  border: 2px solid color-mix(in srgb, var(--brand-primary) 35%, transparent);
+}
+
+@media (min-width: 1024px) {
+  .record-card--verified {
+    transform: scale(1.02);
+    transform-origin: center;
+  }
+}

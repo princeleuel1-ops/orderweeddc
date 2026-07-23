@@ -32,6 +32,7 @@ function healthyCounts() {
     neighborhoodPagesConfigured: 12,
     strainGuidesConfigured: 4,
     legalFaqCount: 13,
+    cardTextFieldsMinimum: 5,
   };
 }
 
@@ -56,6 +57,7 @@ function degradedCounts() {
     neighborhoodPagesConfigured: 3,
     strainGuidesConfigured: 2,
     legalFaqCount: 2,
+    cardTextFieldsMinimum: 3,
   };
 }
 
@@ -415,6 +417,7 @@ test('score and grade boundary: score >= 90 is A, 75-89 is B, 60-74 is C, 40-59 
     neighborhoodPagesConfigured: 8, // WARN (6-11)
     strainGuidesConfigured: 2,      // WARN (< 4)
     legalFaqCount: 8,               // WARN (6-11)
+    cardTextFieldsMinimum: 5,       // PASS (>= 4)
   };
   const { score: warnScore } = evaluateMarketingHealth({
     counts: allWarnCounts,
@@ -527,4 +530,65 @@ test('authority-content check: PASS >= 12, WARN 6-11, FAIL < 6', () => {
   assert.equal(failCheck.status, 'FAIL', '4 FAQ entries should FAIL');
   assert.match(passCheck.evidence, /leaflyRunsFAQPageSchemaOnCityPages=true/);
   assert.equal(passCheck.authority, 'STATIC_CONTRACT');
+});
+
+// ---------------------------------------------------------------------------
+// 9. agent-readability check
+// ---------------------------------------------------------------------------
+
+test('agent-readability check: PASS when cardTextFieldsMinimum >= 4, FAIL below', () => {
+  const passCounts = { ...healthyCounts(), cardTextFieldsMinimum: 5 };
+  const passAtThreshold = { ...healthyCounts(), cardTextFieldsMinimum: 4 };
+  const failCounts = { ...healthyCounts(), cardTextFieldsMinimum: 3 };
+
+  const { checks: passChecks } = evaluateMarketingHealth({ counts: passCounts, asOf: FIXED_AS_OF });
+  const { checks: thresholdChecks } = evaluateMarketingHealth({ counts: passAtThreshold, asOf: FIXED_AS_OF });
+  const { checks: failChecks } = evaluateMarketingHealth({ counts: failCounts, asOf: FIXED_AS_OF });
+
+  const passCheck = passChecks.find((c) => c.id === 'agent-readability');
+  const thresholdCheck = thresholdChecks.find((c) => c.id === 'agent-readability');
+  const failCheck = failChecks.find((c) => c.id === 'agent-readability');
+
+  assert.ok(passCheck, 'agent-readability check must exist');
+  assert.equal(passCheck.status, 'PASS', '5 fields should PASS');
+  assert.equal(thresholdCheck.status, 'PASS', '4 fields (minimum) should PASS');
+  assert.equal(failCheck.status, 'FAIL', '3 fields should FAIL');
+
+  // Evidence cites the count and the constant 5 homepage fields
+  assert.match(passCheck.evidence, /cardTextFieldsMinimum=5/);
+  assert.match(passCheck.evidence, /requiredMinimum=4/);
+  assert.match(passCheck.evidence, /name,address,source,hours,license/);
+
+  // Authority is STATIC_CONTRACT
+  assert.equal(passCheck.authority, 'STATIC_CONTRACT');
+});
+
+test('agent-readability check is present in degraded counts and FAILs on cardTextFieldsMinimum=3', () => {
+  const { checks } = evaluateMarketingHealth({ counts: degradedCounts(), asOf: FIXED_AS_OF });
+  const check = checks.find((c) => c.id === 'agent-readability');
+  assert.ok(check, 'agent-readability check must appear for degraded counts');
+  assert.equal(check.status, 'FAIL', 'degraded counts (cardTextFieldsMinimum=3) should FAIL');
+  assert.match(check.evidence, /cardTextFieldsMinimum=3/);
+});
+
+test('evaluateMarketingHealth throws TypeError for missing cardTextFieldsMinimum', () => {
+  assert.throws(
+    () =>
+      evaluateMarketingHealth({
+        counts: { ...healthyCounts(), cardTextFieldsMinimum: -1 },
+        asOf: FIXED_AS_OF,
+      }),
+    /cardTextFieldsMinimum/,
+    'negative cardTextFieldsMinimum should throw TypeError',
+  );
+
+  assert.throws(
+    () =>
+      evaluateMarketingHealth({
+        counts: { ...healthyCounts(), cardTextFieldsMinimum: NaN },
+        asOf: FIXED_AS_OF,
+      }),
+    /cardTextFieldsMinimum/,
+    'NaN cardTextFieldsMinimum should throw TypeError',
+  );
 });

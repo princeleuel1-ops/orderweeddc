@@ -15,13 +15,27 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         disallow: privateSurfaces,
       },
-      // Strategic AI-crawler policy: authority content (law, neighborhoods,
-      // strain guides, education) is explicitly allowed so AI answers cite
-      // it; private and transactional surfaces stay off-limits.
+      // Strategic AI-crawler policy (four-bot split): CITATION crawlers that
+      // send readers are welcomed on authority content; TRAINING crawlers
+      // that consume without attribution are declined. Rationale in
+      // docs/research/research-synthesis.md.
+      {
+        userAgent: 'OAI-SearchBot',
+        allow: ['/'],
+        disallow: privateSurfaces,
+      },
+      {
+        userAgent: 'PerplexityBot',
+        allow: ['/'],
+        disallow: privateSurfaces,
+      },
       {
         userAgent: 'GPTBot',
-        allow: ['/legal', '/neighborhoods', '/strains', '/education', '/llms.txt'],
-        disallow: privateSurfaces,
+        disallow: ['/'],
+      },
+      {
+        userAgent: 'Google-Extended',
+        disallow: ['/'],
       },
     ],
     sitemap: 'https://orderweeddc.com/sitemap.xml',
