@@ -19,9 +19,17 @@ const argument = (name, fallback) => {
   return found ? found.slice(name.length + 3) : fallback;
 };
 const DRY_RUN = process.argv.includes('--dry-run');
+// Default universe location differs by layout: repo (apps/web/scripts ->
+// repoRoot/docs) vs deployment artifact (scripts/ and docs/ are siblings at
+// the artifact root). Try both; --universe= always wins.
+const universeCandidates = [
+  path.join(repoRoot, 'docs', 'competitive', 'dc-merchant-universe.json'),
+  path.join(webRoot, 'docs', 'competitive', 'dc-merchant-universe.json'),
+];
 const universePath = argument(
   'universe',
-  path.join(repoRoot, 'docs', 'competitive', 'dc-merchant-universe.json'),
+  universeCandidates.find((candidate) => fs.existsSync(candidate)) ??
+    universeCandidates[0],
 );
 
 const prisma = new PrismaClient();

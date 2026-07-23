@@ -83,8 +83,10 @@ sh ~/uploads/deploy.sh orderweeddc-<shortsha>.tar.gz
 **2.5 — Initialize the database (FIRST deploy only):**
 ```
 cd ~/apps/orderweeddc/current
-DATABASE_URL=file:$HOME/orderweeddc-data/prod.db node scripts/init-production-db.mjs
-DATABASE_URL=file:$HOME/orderweeddc-data/prod.db node scripts/seed-abca-retailers.mjs
+N=/opt/alt/alt-nodejs20/root/usr/bin/node
+export PRISMA_QUERY_ENGINE_LIBRARY=$PWD/node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node
+DATABASE_URL=file:$HOME/orderweeddc-data/prod.db $N scripts/init-production-db.mjs
+DATABASE_URL=file:$HOME/orderweeddc-data/prod.db $N scripts/seed-abca-retailers.mjs
 ```
 `init-production-db` creates only the canonical brand — **zero demo data**.
 `seed-abca-retailers` ingests the 74 licensed DC retailers as
@@ -110,6 +112,7 @@ Set in **Setup Node.js App → Environment variables**. Template:
 | `DATABASE_URL` | `file:/home/<cpanel-user>/orderweeddc-data/prod.db` | you (path only, not a secret) |
 | `NODE_ENV` | `production` | fixed |
 | `CANA_ALLOWED_HOSTS` | *(optional)* extra hostnames, comma-separated | you |
+| `PRISMA_QUERY_ENGINE_LIBRARY` | `/home/<cpanel-user>/apps/orderweeddc/current/node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node` | fixed path (CageFS hides os-release, so Prisma's auto-detection guesses debian; newer artifacts also self-set this in app.js) |
 
 `orderweeddc.com` and `www.orderweeddc.com` are **built-in** allowed hosts — no
 env var needed. `GEMINI_API_KEY` is **not** a production runtime variable; the
