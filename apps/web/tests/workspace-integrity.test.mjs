@@ -13,7 +13,11 @@ test('the release workspace names only executable, verified packages', () => {
   const rootPackage = JSON.parse(
     fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'),
   );
-  assert.deepEqual(rootPackage.workspaces, ['apps/web', 'packages/ai']);
+  assert.deepEqual(rootPackage.workspaces, [
+    'apps/web',
+    'packages/ad-creative',
+    'packages/ai',
+  ]);
   const webPackage = JSON.parse(
     fs.readFileSync(path.join(webRoot, 'package.json'), 'utf8'),
   );
@@ -32,7 +36,7 @@ test('the release workspace names only executable, verified packages', () => {
     .sort();
   // paid-governance is a Python package (unittest-verified), so it lives in
   // packages/ but is intentionally absent from the npm workspaces list above.
-  assert.deepEqual(packageDirectories, ['ai', 'paid-governance']);
+  assert.deepEqual(packageDirectories, ['ad-creative', 'ai', 'paid-governance']);
 });
 
 test('shadow application and data-model entry points stay retired', () => {
