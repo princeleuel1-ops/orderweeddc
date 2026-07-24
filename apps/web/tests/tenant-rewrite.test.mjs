@@ -26,11 +26,15 @@ function passengerRewrite(overrides = {}) {
 
 test('production rewrite uses Passenger runtime PORT, not Next default :3000', () => {
   const target = passengerRewrite();
-  assert.equal(target.toString(), 'http://127.0.0.1:41234/orderweeddc.localhost/');
+  assert.equal(target.toString(), 'http://127.0.0.1:41234/orderweeddc.localhost');
   assert.equal(rewriteUsesUnboundDefaultPort(target), false);
 });
 
-
+test('root rewrite avoids a public trailing-slash redirect to the tenant path', () => {
+  const target = passengerRewrite();
+  assert.equal(target.pathname, '/orderweeddc.localhost');
+  assert.equal(target.pathname.endsWith('/'), false);
+});
 
 test('runtime target reaches the active Passenger-style loopback listener', async (t) => {
   const observed = {};
@@ -73,7 +77,7 @@ test('request.url cannot override the production Passenger destination', () => {
     rawRequestUrl: 'https://attacker.example:3000/stolen',
   });
   assert.equal(target.origin, 'http://127.0.0.1:41234');
-  assert.equal(target.pathname, '/orderweeddc.localhost/');
+  assert.equal(target.pathname, '/orderweeddc.localhost');
 });
 
 test('an unsafe HOSTNAME value is ignored and pinned to loopback', () => {

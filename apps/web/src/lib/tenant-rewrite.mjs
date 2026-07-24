@@ -45,7 +45,7 @@ function normalizedTenantPath(tenantDomain, pathname) {
       ? pathname
       : '/';
 
-  return `/${tenantDomain}${sourcePath}`;
+  return `/${tenantDomain}${sourcePath === '/' ? '' : sourcePath}`;
 }
 
 /**
