@@ -4,7 +4,9 @@ import http from 'node:http';
 import { once } from 'node:events';
 import {
   buildTenantRewriteUrl,
+  isAuthorizedTenantRewriteReentry,
   rewriteUsesUnboundDefaultPort,
+  TENANT_REWRITE_MARKER_HEADER,
 } from '../src/lib/tenant-rewrite.mjs';
 
 const TENANT = 'orderweeddc.localhost';
@@ -147,4 +149,57 @@ test('unsafe tenant path injection is rejected', () => {
       tenantDomain,
     );
   }
+});
+
+test('external loopback Host cannot impersonate an internal tenant rewrite', () => {
+  const expectedToken = 'a'.repeat(32);
+  const shared = {
+    tenantAllowed: true,
+    expectedToken,
+  };
+
+  for (const loopbackHostname of ['localhost', '127.0.0.1', '::1']) {
+    assert.equal(
+      isAuthorizedTenantRewriteReentry({
+        ...shared,
+        loopbackHostname,
+        presentedToken: null,
+      }),
+      false,
+    );
+    assert.equal(
+      isAuthorizedTenantRewriteReentry({
+        ...shared,
+        loopbackHostname,
+        presentedToken: 'attacker-controlled',
+      }),
+      false,
+    );
+  }
+});
+
+test('only the process-local marker authorizes an allowlisted loopback re-entry', () => {
+  const expectedToken = 'b'.repeat(32);
+  assert.equal(
+    isAuthorizedTenantRewriteReentry({
+      loopbackHostname: '127.0.0.1',
+      tenantAllowed: true,
+      presentedToken: expectedToken,
+      expectedToken,
+    }),
+    true,
+  );
+  assert.equal(
+    isAuthorizedTenantRewriteReentry({
+      loopbackHostname: '127.0.0.1',
+      tenantAllowed: false,
+      presentedToken: expectedToken,
+      expectedToken,
+    }),
+    false,
+  );
+  assert.equal(
+    TENANT_REWRITE_MARKER_HEADER,
+    'x-orderweeddc-internal-tenant-rewrite',
+  );
 });

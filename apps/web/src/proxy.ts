@@ -10,7 +10,13 @@ import {
   isCanonicalPlatformHostname,
   tenantDomainForRequestHostname,
 } from '@/lib/tenant-host.mjs';
-import { buildTenantRewriteUrl } from '@/lib/tenant-rewrite.mjs';
+import {
+  buildTenantRewriteUrl,
+  isAuthorizedTenantRewriteReentry,
+  TENANT_REWRITE_MARKER_HEADER,
+} from '@/lib/tenant-rewrite.mjs';
+
+const TENANT_REWRITE_TOKEN = crypto.randomUUID();
 
 const REDIRECT_MAP: Record<string, string> = {
   'dmvweeddelivery.com': '/?type=delivery',
@@ -69,17 +75,23 @@ export function proxy(request: NextRequest) {
   const hostnameHeader = request.headers.get('host');
 
   // Standalone re-entry pass-through: the Node standalone server resolves
-  // a middleware rewrite by re-dispatching it internally over loopback,
-  // so pass two arrives with Host localhost:<port> and a path that
-  // already carries the tenant prefix produced by pass one. Let exactly
-  // that shape through untouched. External traffic can never legitimately
-  // present a loopback Host (the front proxy routes by public vhost), and
-  // the tenant prefix must itself be an allowlisted hostname, so this
-  // cannot be used to reach a tenant that pass one would have refused.
+  // a middleware rewrite by re-dispatching it internally over loopback.
+  // Authenticate that second pass with a process-local token forwarded only
+  // as an upstream request header. A client-supplied loopback Host therefore
+  // remains untrusted even when its path starts with an allowlisted tenant.
   const rawAuthority = parseRequestAuthority(hostnameHeader);
   if (rawAuthority && isLoopbackHostname(rawAuthority.hostname)) {
     const tenantPrefix = url.pathname.split('/')[1] ?? '';
-    if (tenantPrefix && parseAllowedRequestHost(tenantPrefix)) {
+    if (
+      isAuthorizedTenantRewriteReentry({
+        loopbackHostname: rawAuthority.hostname,
+        tenantAllowed: Boolean(
+          tenantPrefix && parseAllowedRequestHost(tenantPrefix),
+        ),
+        presentedToken: request.headers.get(TENANT_REWRITE_MARKER_HEADER),
+        expectedToken: TENANT_REWRITE_TOKEN,
+      })
+    ) {
       return NextResponse.next();
     }
   }
@@ -203,7 +215,13 @@ export function proxy(request: NextRequest) {
     });
   }
 
-  return NextResponse.rewrite(rewriteUrl);
+  const rewriteHeaders = new Headers(request.headers);
+  rewriteHeaders.set(TENANT_REWRITE_MARKER_HEADER, TENANT_REWRITE_TOKEN);
+  return NextResponse.rewrite(rewriteUrl, {
+    request: {
+      headers: rewriteHeaders,
+    },
+  });
 }
 
 // Config to limit where the middleware runs
