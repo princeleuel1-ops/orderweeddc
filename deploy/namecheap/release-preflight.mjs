@@ -25,16 +25,19 @@ export function evaluateReleaseReproducibility({ workingTree, gitSha, remoteCont
   return { ok: problems.length === 0, problems };
 }
 
-// Side-effecting wrapper for the builder. `capture(cmd, opts)` runs a shell command → trimmed stdout.
-export function assertReleaseReproducible({ capture, repoRoot, remote = 'origin', workingTree, gitSha, allowDirty = false }) {
+export function assertReleaseReproducible({
+  execFile,
+  repoRoot,
+  remote = 'origin',
+  workingTree,
+  gitSha,
+  allowDirty = false,
+}) {
   let remoteContains = false;
   try {
-    const ls = capture(`git ls-remote ${remote}`, { cwd: repoRoot }) || '';
+    const ls =
+      execFile('git', ['ls-remote', remote], { cwd: repoRoot }) || '';
     remoteContains = ls.split('\n').some((line) => line.slice(0, 40) === gitSha);
-    if (!remoteContains) {
-      const contains = (capture(`git branch -r --contains ${gitSha}`, { cwd: repoRoot }) || '').trim();
-      remoteContains = contains !== '';
-    }
   } catch {
     remoteContains = false;
   }

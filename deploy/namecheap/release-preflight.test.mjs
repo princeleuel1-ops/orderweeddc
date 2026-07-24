@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateReleaseReproducibility } from './release-preflight.mjs';
+import {
+  assertReleaseReproducible,
+  evaluateReleaseReproducibility,
+} from './release-preflight.mjs';
 
 const FULL_SHA = '64c81128f1d866331512a9acd93f0cf40c6b1240';
 
@@ -31,4 +34,43 @@ test('multiple problems are all reported', () => {
   const v = evaluateReleaseReproducibility({ workingTree: ' M x', gitSha: 'nope', remoteContains: false });
   assert.equal(v.ok, false);
   assert.equal(v.problems.length, 3);
+});
+
+test('live remote lookup passes the remote as an argv value without a shell', () => {
+  const calls = [];
+  const remote = 'origin; touch should-not-run';
+  const result = assertReleaseReproducible({
+    execFile(command, args, options) {
+      calls.push({ command, args, options });
+      return `${FULL_SHA}\trefs/heads/test\n`;
+    },
+    repoRoot: '/repo',
+    remote,
+    workingTree: '',
+    gitSha: FULL_SHA,
+  });
+
+  assert.deepEqual(calls, [
+    {
+      command: 'git',
+      args: ['ls-remote', remote],
+      options: { cwd: '/repo' },
+    },
+  ]);
+  assert.deepEqual(result, { remote, remoteReachable: true });
+});
+
+test('failed live remote lookup fails closed without stale local-ref fallback', () => {
+  assert.throws(
+    () =>
+      assertReleaseReproducible({
+        execFile() {
+          throw new Error('remote unavailable');
+        },
+        repoRoot: '/repo',
+        workingTree: '',
+        gitSha: FULL_SHA,
+      }),
+    /not reachable on the remote/,
+  );
 });
