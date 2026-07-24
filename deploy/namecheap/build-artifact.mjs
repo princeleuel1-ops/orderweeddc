@@ -29,11 +29,13 @@
  *   node deploy/namecheap/build-artifact.mjs
  *   SERVER_OPENSSL=1.1 CLEAN_INSTALL=1 node deploy/namecheap/build-artifact.mjs
  */
-import { execSync, spawn } from 'node:child_process';
+import { execFileSync, execSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { auditArtifactExclusions } from './artifact-exclusions.mjs';
+import { createReleaseChildEnvironment } from './release-environment.mjs';
 import { assertReleaseReproducible } from './release-preflight.mjs';
 import { selectTestPrismaEngine } from './select-test-engine.mjs';
 
@@ -55,20 +57,36 @@ if (process.version !== REQUIRED_NODE && process.env.ALLOW_NODE_MISMATCH !== '1'
 
 function run(command, options = {}) {
   console.log(`\n$ ${command}`);
-  execSync(command, { stdio: 'inherit', ...options });
+  const { env = process.env, ...rest } = options;
+  execSync(command, {
+    stdio: 'inherit',
+    ...rest,
+    env: createReleaseChildEnvironment({ baseEnvironment: env }),
+  });
 }
 
 function capture(command, options = {}) {
-  return execSync(command, { encoding: 'utf8', ...options }).trim();
+  const { env = process.env, ...rest } = options;
+  return execSync(command, {
+    encoding: 'utf8',
+    ...rest,
+    env: createReleaseChildEnvironment({ baseEnvironment: env }),
+  }).trim();
 }
 
 function releaseChildEnvironment(overrides = {}) {
-  const environment = { ...process.env, ...overrides };
-  // Prisma 6.19's schema-engine JSON-RPC emits only "Schema engine error"
-  // when a host-level RUST_LOG value leaks into db push on macOS. Release
-  // subprocesses must not inherit host Rust logging configuration.
-  delete environment.RUST_LOG;
-  return environment;
+  return createReleaseChildEnvironment({
+    baseEnvironment: { ...process.env, ...overrides },
+  });
+}
+
+function execFile(command, args, options = {}) {
+  const { env = process.env, ...rest } = options;
+  return execFileSync(command, args, {
+    encoding: 'utf8',
+    ...rest,
+    env: createReleaseChildEnvironment({ baseEnvironment: env }),
+  }).trim();
 }
 
 function sha256File(target) {
@@ -112,7 +130,7 @@ const workingTree = capture('git status --porcelain', { cwd: repoRoot });
 // from an unpushed SHA). See release-preflight.mjs. Override for throwaway local
 // builds only with ALLOW_DIRTY=1; the remote is GIT_REMOTE (default: origin).
 const releaseRepro = assertReleaseReproducible({
-  capture,
+  execFile,
   repoRoot,
   remote: process.env.GIT_REMOTE || 'origin',
   workingTree,
@@ -328,6 +346,7 @@ function writeReceipt(extra = {}) {
     workingTree: workingTree === '' ? 'clean' : workingTree.split('\n'),
     builtAt: new Date().toISOString(),
     nodeVersion: process.version,
+    nodePath: process.execPath,
     // Hoisted monorepo: resolve through Node so root node_modules works.
     nextVersion: JSON.parse(
       fs.readFileSync(
@@ -486,6 +505,8 @@ async function isolatedRuntimeTest() {
       ['www redirect 308', 'www.orderweeddc.com', '/', '308'],
       ['unknown host 421', 'evil.example', '/', '421'],
       ['tenant spoof 404', 'orderweeddc.com', '/wellness.localhost', '404'],
+      ['localhost Host spoof 421', 'localhost', '/orderweeddc.localhost', '421'],
+      ['127.0.0.1 Host spoof 421', '127.0.0.1', '/orderweeddc.localhost', '421'],
     ]) {
       record(label, (await httpCode(port, host, pathname)) === expected);
     }
@@ -508,11 +529,13 @@ async function isolatedRuntimeTest() {
     } catch {}
   }
 
-  // Secret scan inside the extracted artifact.
-  const secretHits = capture(
-    `grep -rloE "BEGIN (RSA |EC )?PRIVATE KEY|GEMINI_API_KEY=[A-Za-z0-9_-]{10,}" ${JSON.stringify(appRoot)} 2>/dev/null | head -3 || true`,
+  const exclusionAudit = auditArtifactExclusions(appRoot);
+  record(
+    'no forbidden secret files or credential patterns in artifact',
+    exclusionAudit.passed,
+    `${exclusionAudit.filesScanned} files scanned`,
   );
-  record('no secrets in artifact', secretHits === '');
+  results.artifactExclusionAudit = exclusionAudit;
 
   // Code rollback leaves the database byte-identical.
   const dbBefore = sha256File(path.join(dataDir, 'prod.db'));

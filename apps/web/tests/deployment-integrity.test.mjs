@@ -112,8 +112,8 @@ test('builder contract: webpack-only, unresolved-external scan, out-of-repo isol
   assert.match(builder, /bundler: 'webpack'/, 'receipt must record the bundler');
   assert.match(
     builder,
-    /delete environment\.RUST_LOG/,
-    'host Rust logging must not corrupt Prisma schema-engine JSON-RPC',
+    /createReleaseChildEnvironment/,
+    'every release child must use the verified Node path and sanitized environment',
   );
 
   const gates = read('deploy/namecheap/PRODUCTION_RELEASE_GATES.md');
