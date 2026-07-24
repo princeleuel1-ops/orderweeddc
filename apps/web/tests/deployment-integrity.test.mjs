@@ -110,6 +110,11 @@ test('builder contract: webpack-only, unresolved-external scan, out-of-repo isol
   assert.match(builder, /mkdtempSync\(path\.join\(os\.tmpdir\(\)/, 'isolation must extract outside the repository');
   assert.match(builder, /isolatedRuntimeTest/, 'isolated runtime results must reach the receipt');
   assert.match(builder, /bundler: 'webpack'/, 'receipt must record the bundler');
+  assert.match(
+    builder,
+    /delete environment\.RUST_LOG/,
+    'host Rust logging must not corrupt Prisma schema-engine JSON-RPC',
+  );
 
   const gates = read('deploy/namecheap/PRODUCTION_RELEASE_GATES.md');
   assert.match(gates, /Turbopack standalone output is BANNED/);

@@ -62,6 +62,15 @@ function capture(command, options = {}) {
   return execSync(command, { encoding: 'utf8', ...options }).trim();
 }
 
+function releaseChildEnvironment(overrides = {}) {
+  const environment = { ...process.env, ...overrides };
+  // Prisma 6.19's schema-engine JSON-RPC emits only "Schema engine error"
+  // when a host-level RUST_LOG value leaks into db push on macOS. Release
+  // subprocesses must not inherit host Rust logging configuration.
+  delete environment.RUST_LOG;
+  return environment;
+}
+
 function sha256File(target) {
   return createHash('sha256').update(fs.readFileSync(target)).digest('hex');
 }
@@ -127,7 +136,10 @@ if (process.env.CLEAN_INSTALL === '1') {
 // Phase 2 — assets, prisma client, webpack standalone build
 // ---------------------------------------------------------------------------
 run('node scripts/restore-brand-assets.mjs', { cwd: webRoot });
-run('npx prisma generate', { cwd: webRoot });
+run('npx prisma generate', {
+  cwd: webRoot,
+  env: releaseChildEnvironment(),
+});
 run('npx next build --webpack', {
   cwd: webRoot,
   env: { ...process.env, NEXT_OUTPUT: 'standalone', NODE_ENV: 'production' },
@@ -194,7 +206,7 @@ const templateDb = path.join(templateDir, 'orderweeddc-schema-template.db');
 fs.rmSync(templateDb, { force: true });
 run(`npx prisma db push --skip-generate --schema prisma/schema.prisma`, {
   cwd: webRoot,
-  env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
+  env: releaseChildEnvironment({ DATABASE_URL: `file:${templateDb}` }),
 });
 const templateInventory = JSON.parse(
   capture(`node scripts/db-inspect.mjs`, {
