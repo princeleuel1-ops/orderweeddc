@@ -14,6 +14,7 @@ import {
   originForRequestHost,
   tenantDomainForRequestHostname,
 } from '../src/lib/tenant-host.mjs';
+import { isAuthorizedTenantRewriteReentry } from '../src/lib/tenant-rewrite.mjs';
 import {
   currentPublicRecordWhere,
   serializeStructuredData,
@@ -225,7 +226,7 @@ test('www.orderweeddc.com is an allowed host that permanently redirects to the a
   assert.match(proxySource, /308/);
 });
 
-test('standalone loopback re-entry is scoped: loopback host AND allowlisted tenant prefix only', () => {
+test('standalone loopback re-entry also requires the process-local marker', () => {
   // Loopback triage helpers behave exactly as the proxy relies on.
   assert.equal(isLoopbackHostname('localhost'), true);
   assert.equal(isLoopbackHostname('127.0.0.1'), true);
@@ -257,6 +258,16 @@ test('standalone loopback re-entry is scoped: loopback host AND allowlisted tena
     proxySource,
     /parseAllowedRequestHost\(tenantPrefix\)/,
     'the tenant prefix of a loopback re-entry must be allowlist-validated',
+  );
+  assert.match(proxySource, /TENANT_REWRITE_MARKER_HEADER/);
+  assert.equal(
+    isAuthorizedTenantRewriteReentry({
+      loopbackHostname: 'localhost',
+      tenantAllowed: true,
+      presentedToken: null,
+      expectedToken: 'a'.repeat(32),
+    }),
+    false,
   );
 });
 
