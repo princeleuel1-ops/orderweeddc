@@ -4,10 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
-  isLoopbackHostname,
   isStaticAssetPath,
   parseAllowedRequestHost,
-  parseRequestAuthority,
 } from '../src/lib/host-policy.mjs';
 import {
   canonicalOriginForRequestHost,
@@ -18,6 +16,10 @@ import {
   currentPublicRecordWhere,
   serializeStructuredData,
 } from '../src/lib/seo-truth.mjs';
+import {
+  isExplicitRequestHost,
+  tenantRedirectPath,
+} from '../src/lib/tenant-rewrite.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(testDirectory, '..');
@@ -45,6 +47,7 @@ test('request host policy accepts exact platform hosts and rejects authority tri
       authority: 'custom.example:8443',
     },
   );
+  assert.equal(isExplicitRequestHost('custom.example'), false);
 
   for (const authority of [
     null,
@@ -137,13 +140,17 @@ test('host validation runs before infrastructure and privileged route bypasses',
   );
   assert.ok(hostValidation >= 0);
   assert.ok(routeBypass > hostValidation);
+  assert.match(proxySource, /isExplicitRequestHost\(requestHost\.hostname\)/);
   assert.match(proxySource, /status:\s*421/);
   assert.match(proxySource, /X-Robots-Tag/);
   assert.match(proxySource, /noindex, nofollow, noarchive/);
-  assert.match(proxySource, /tenantDomainForRequestHostname\(host\)/);
   assert.match(proxySource, /isCanonicalPlatformHostname\(host\)/);
-  assert.match(proxySource, /dmvweeddelivery\.com': '\/\?type=delivery'/);
+  assert.match(proxySource, /return NextResponse\.next\(\);/);
+  assert.doesNotMatch(proxySource, /NextResponse\.rewrite/);
+  assert.doesNotMatch(proxySource, /process\.env\.(?:PORT|HOSTNAME)/);
+  assert.doesNotMatch(proxySource, /request\.(?:url|nextUrl)\.origin/);
   assert.doesNotMatch(proxySource, /['"]\/(?:delivery|near-me)['"]/);
+  assert.match(proxySource, /tenantRedirectPath\(host\)/);
   assert.match(
     proxySource,
     /\/\(\(\?!_next\/static\|_next\/image\|assets\|favicon\.ico\)\.\*\)/,
@@ -213,51 +220,57 @@ test('www.orderweeddc.com is an allowed host that permanently redirects to the a
     'utf8',
   );
   const wwwRedirect = proxySource.indexOf("host === 'www.orderweeddc.com'");
-  const tenantRewrite = proxySource.indexOf(
-    'tenantDomainForRequestHostname(host)',
+  const acceptedTenant = proxySource.lastIndexOf(
+    'return NextResponse.next();',
   );
   assert.ok(wwwRedirect >= 0, 'www redirect must exist in the proxy');
   assert.ok(
-    wwwRedirect < tenantRewrite,
+    wwwRedirect < acceptedTenant,
     'www consolidation must run before tenant routing',
   );
   assert.match(proxySource, /url\.pathname \+ url\.search, 'https:\/\/orderweeddc\.com'/);
   assert.match(proxySource, /308/);
 });
 
-test('standalone loopback re-entry is scoped: loopback host AND allowlisted tenant prefix only', () => {
-  // Loopback triage helpers behave exactly as the proxy relies on.
-  assert.equal(isLoopbackHostname('localhost'), true);
-  assert.equal(isLoopbackHostname('127.0.0.1'), true);
-  assert.equal(isLoopbackHostname('orderweeddc.com'), false);
-  assert.deepEqual(parseRequestAuthority('localhost:3000'), {
-    hostname: 'localhost',
-    port: '3000',
-  });
-
-  // Plain localhost still fails the public allowlist: the re-entry branch
-  // is the ONLY path a loopback request can take, and it requires the
-  // rewritten tenant prefix to itself be an allowlisted hostname.
+test('loopback and client-supplied internal routing state cannot bypass the host gate', () => {
   assert.equal(parseAllowedRequestHost('localhost:3000'), null);
+  assert.equal(parseAllowedRequestHost('127.0.0.1:3000'), null);
 
   const proxySource = fs.readFileSync(
     path.join(webRoot, 'src/proxy.ts'),
     'utf8',
   );
-  const reentry = proxySource.indexOf('isLoopbackHostname(rawAuthority.hostname)');
   const hostValidation = proxySource.indexOf(
     'parseAllowedRequestHost(hostnameHeader)',
   );
-  assert.ok(reentry >= 0, 'loopback re-entry branch must exist');
-  assert.ok(
-    reentry < hostValidation,
-    're-entry triage must run before the public host gate',
+  assert.ok(hostValidation >= 0);
+  assert.doesNotMatch(proxySource, /isLoopbackHostname/);
+  assert.doesNotMatch(proxySource, /parseRequestAuthority/);
+  assert.doesNotMatch(proxySource, /TENANT_REWRITE_MARKER/);
+  assert.doesNotMatch(proxySource, /randomUUID/);
+  assert.doesNotMatch(proxySource, /request\.headers\.get\([^)]*rewrite/i);
+});
+
+test('Next.js configuration owns host-based relative tenant routing', () => {
+  const configSource = fs.readFileSync(
+    path.join(webRoot, 'next.config.ts'),
+    'utf8',
   );
-  assert.match(
-    proxySource,
-    /parseAllowedRequestHost\(tenantPrefix\)/,
-    'the tenant prefix of a loopback re-entry must be allowlist-validated',
+  const helperSource = fs.readFileSync(
+    path.join(webRoot, 'src/lib/tenant-rewrite.mjs'),
+    'utf8',
   );
+  assert.match(configSource, /async rewrites\(\)/);
+  assert.match(configSource, /return tenantRewriteRules\(\)/);
+  assert.match(helperSource, /type: 'host'/);
+  assert.match(helperSource, /source: '\/:path\*'/);
+  assert.match(helperSource, /destination: CANONICAL_TENANT_PATH/);
+  assert.doesNotMatch(helperSource, /NextResponse/);
+  assert.doesNotMatch(helperSource, /process\.env/);
+  assert.doesNotMatch(helperSource, /requestUrl|passenger|marker/i);
+  assert.doesNotMatch(helperSource, /(?:https?:)?\/\//);
+  assert.equal(tenantRedirectPath('dmvweeddelivery.com'), '/?type=delivery');
+  assert.equal(tenantRedirectPath('weedneardc.com'), '/');
 });
 
 test('static-asset passthrough is extension-scoped, not any-dot: hostname paths are tenant-routed', () => {

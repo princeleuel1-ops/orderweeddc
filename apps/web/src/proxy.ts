@@ -1,38 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import {
-  isLoopbackHostname,
   isStaticAssetPath,
   parseAllowedRequestHost,
-  parseRequestAuthority,
 } from '@/lib/host-policy.mjs';
+import { isCanonicalPlatformHostname } from '@/lib/tenant-host.mjs';
 import {
-  isCanonicalPlatformHostname,
-  tenantDomainForRequestHostname,
-} from '@/lib/tenant-host.mjs';
-
-const REDIRECT_MAP: Record<string, string> = {
-  'dmvweeddelivery.com': '/?type=delivery',
-  'dmvweeddelivery.localhost': '/?type=delivery',
-  
-  'weedneardc.com': '/',
-  'weedneardc.localhost': '/',
-  
-  'georgetowndispensarydc.com': '/neighborhoods/georgetown',
-  'georgetowndispensarydc.localhost': '/neighborhoods/georgetown',
-  
-  'dupontcircledispensarydc.com': '/neighborhoods/dupont-circle',
-  'dupontcircledispensarydc.localhost': '/neighborhoods/dupont-circle',
-  
-  'capitolhilldispensarydc.com': '/neighborhoods/capitol-hill',
-  'capitolhilldispensarydc.localhost': '/neighborhoods/capitol-hill',
-  
-  'ustreetdispensarydc.com': '/neighborhoods/u-street-shaw',
-  'ustreetdispensarydc.localhost': '/neighborhoods/u-street-shaw',
-  
-  'navyyarddispensarydc.com': '/neighborhoods/navy-yard-wharf',
-  'navyyarddispensarydc.localhost': '/neighborhoods/navy-yard-wharf',
-};
+  isExplicitRequestHost,
+  tenantRedirectPath,
+} from '@/lib/tenant-rewrite.mjs';
 
 const NON_INDEXABLE_RESPONSE_HEADERS = {
   'Cache-Control': 'no-store',
@@ -67,24 +43,8 @@ export function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
   const hostnameHeader = request.headers.get('host');
 
-  // Standalone re-entry pass-through: the Node standalone server resolves
-  // a middleware rewrite by re-dispatching it internally over loopback,
-  // so pass two arrives with Host localhost:<port> and a path that
-  // already carries the tenant prefix produced by pass one. Let exactly
-  // that shape through untouched. External traffic can never legitimately
-  // present a loopback Host (the front proxy routes by public vhost), and
-  // the tenant prefix must itself be an allowlisted hostname, so this
-  // cannot be used to reach a tenant that pass one would have refused.
-  const rawAuthority = parseRequestAuthority(hostnameHeader);
-  if (rawAuthority && isLoopbackHostname(rawAuthority.hostname)) {
-    const tenantPrefix = url.pathname.split('/')[1] ?? '';
-    if (tenantPrefix && parseAllowedRequestHost(tenantPrefix)) {
-      return NextResponse.next();
-    }
-  }
-
   const requestHost = parseAllowedRequestHost(hostnameHeader);
-  if (!requestHost) {
+  if (!requestHost || !isExplicitRequestHost(requestHost.hostname)) {
     return new NextResponse('The requested host is not configured.', {
       status: 421,
       headers: {
@@ -154,23 +114,15 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Perform redirect if mapped
-  const redirectPath = REDIRECT_MAP[host];
+  const redirectPath = tenantRedirectPath(host);
   if (redirectPath) {
-    const isLocal = host.endsWith('.localhost') || host === 'localhost';
-    const targetBase = isLocal 
+    const targetBase = host.endsWith('.localhost')
       ? `http://orderweeddc.localhost${port ? `:${port}` : ''}`
       : 'https://orderweeddc.com';
-    const targetUrl = `${targetBase}${redirectPath}`;
-    return NextResponse.redirect(new URL(targetUrl));
+    return NextResponse.redirect(new URL(`${targetBase}${redirectPath}`));
   }
 
-  // 3. Fallback to dynamic brand routing
-  // Rewrite request path to include the domain folder internally
-  const tenantDomain = tenantDomainForRequestHostname(host);
-  url.pathname = `/${tenantDomain}${url.pathname}`;
-  
-  return NextResponse.rewrite(url);
+  return NextResponse.next();
 }
 
 // Config to limit where the middleware runs

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { tenantRewriteRules } from "./src/lib/tenant-rewrite.mjs";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const contentSecurityPolicy = [
@@ -90,6 +91,12 @@ const nextConfig: NextConfig = {
   // Webpack standalone builds (the Namecheap artifact path) need the same
   // monorepo root for file tracing that turbopack.root provides in dev.
   outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
+  async rewrites() {
+    return tenantRewriteRules().map((rewrite) => ({
+      ...rewrite,
+      has: rewrite.has.map(({ value }) => ({ type: "host" as const, value })),
+    }));
+  },
   async headers() {
     return [
       {
