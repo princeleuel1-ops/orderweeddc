@@ -15,6 +15,8 @@
 
 const TENANT_SEGMENT_PATTERN = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
 const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1']);
+export const TENANT_REWRITE_MARKER_HEADER =
+  'x-orderweeddc-internal-tenant-rewrite';
 
 function parseRuntimePort(value) {
   const text = String(value ?? '').trim();
@@ -46,6 +48,21 @@ function normalizedTenantPath(tenantDomain, pathname) {
       : '/';
 
   return `/${tenantDomain}${sourcePath === '/' ? '' : sourcePath}`;
+}
+
+export function isAuthorizedTenantRewriteReentry({
+  loopbackHostname,
+  tenantAllowed,
+  presentedToken,
+  expectedToken,
+}) {
+  return (
+    LOOPBACK_HOSTNAMES.has(String(loopbackHostname ?? '').toLowerCase()) &&
+    tenantAllowed === true &&
+    typeof expectedToken === 'string' &&
+    expectedToken.length >= 32 &&
+    presentedToken === expectedToken
+  );
 }
 
 /**
