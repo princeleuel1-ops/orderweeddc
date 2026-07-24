@@ -10,26 +10,27 @@ import {
   isCanonicalPlatformHostname,
   tenantDomainForRequestHostname,
 } from '@/lib/tenant-host.mjs';
+import { buildTenantRewriteUrl } from '@/lib/tenant-rewrite.mjs';
 
 const REDIRECT_MAP: Record<string, string> = {
   'dmvweeddelivery.com': '/?type=delivery',
   'dmvweeddelivery.localhost': '/?type=delivery',
-  
+
   'weedneardc.com': '/',
   'weedneardc.localhost': '/',
-  
+
   'georgetowndispensarydc.com': '/neighborhoods/georgetown',
   'georgetowndispensarydc.localhost': '/neighborhoods/georgetown',
-  
+
   'dupontcircledispensarydc.com': '/neighborhoods/dupont-circle',
   'dupontcircledispensarydc.localhost': '/neighborhoods/dupont-circle',
-  
+
   'capitolhilldispensarydc.com': '/neighborhoods/capitol-hill',
   'capitolhilldispensarydc.localhost': '/neighborhoods/capitol-hill',
-  
+
   'ustreetdispensarydc.com': '/neighborhoods/u-street-shaw',
   'ustreetdispensarydc.localhost': '/neighborhoods/u-street-shaw',
-  
+
   'navyyarddispensarydc.com': '/neighborhoods/navy-yard-wharf',
   'navyyarddispensarydc.localhost': '/neighborhoods/navy-yard-wharf',
 };
@@ -158,19 +159,51 @@ export function proxy(request: NextRequest) {
   const redirectPath = REDIRECT_MAP[host];
   if (redirectPath) {
     const isLocal = host.endsWith('.localhost') || host === 'localhost';
-    const targetBase = isLocal 
+    const targetBase = isLocal
       ? `http://orderweeddc.localhost${port ? `:${port}` : ''}`
       : 'https://orderweeddc.com';
     const targetUrl = `${targetBase}${redirectPath}`;
     return NextResponse.redirect(new URL(targetUrl));
   }
 
-  // 3. Fallback to dynamic brand routing
-  // Rewrite request path to include the domain folder internally
+  // 3. Fallback to dynamic brand routing.
+  //
+  // NextRequest exposes request.url and request.nextUrl from the same parsed URL.
+  // Under Passenger that URL was https://localhost:3000 even though Passenger
+  // launched this standalone server on a different dynamic loopback port. Merely
+  // switching from request.nextUrl to request.url therefore cannot fix the 500.
+  //
+  // Build the production rewrite from Passenger's runtime PORT and a validated
+  // loopback hostname. The existing loopback re-entry guard above then lets the
+  // tenant-prefixed second pass reach the [domain] route without recursion.
   const tenantDomain = tenantDomainForRequestHostname(host);
-  url.pathname = `/${tenantDomain}${url.pathname}`;
-  
-  return NextResponse.rewrite(url);
+
+  let rewriteUrl: URL;
+  try {
+    rewriteUrl = buildTenantRewriteUrl({
+      tenantDomain,
+      pathname: url.pathname,
+      search: url.search,
+      runtimePort: process.env.PORT,
+      runtimeHostname: process.env.HOSTNAME,
+      rawRequestUrl: request.url,
+      production: process.env.NODE_ENV === 'production',
+    });
+  } catch (error) {
+    console.error(
+      'Tenant rewrite configuration error:',
+      error instanceof Error ? error.message : 'unknown error',
+    );
+    return new NextResponse('The application is temporarily unavailable.', {
+      status: 503,
+      headers: {
+        ...NON_INDEXABLE_RESPONSE_HEADERS,
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+    });
+  }
+
+  return NextResponse.rewrite(rewriteUrl);
 }
 
 // Config to limit where the middleware runs
