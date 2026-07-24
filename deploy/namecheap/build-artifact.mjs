@@ -29,22 +29,64 @@
  *   node deploy/namecheap/build-artifact.mjs
  *   SERVER_OPENSSL=1.1 CLEAN_INSTALL=1 node deploy/namecheap/build-artifact.mjs
  */
-import { execSync, spawn } from 'node:child_process';
+import { execFileSync, execSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { auditArtifactExclusions } from './artifact-exclusions.mjs';
+import { createReleaseChildEnvironment } from './release-environment.mjs';
+import { assertReleaseReproducible } from './release-preflight.mjs';
+import { selectTestPrismaEngine } from './select-test-engine.mjs';
 
 const repoRoot = process.cwd();
 const webRoot = path.join(repoRoot, 'apps/web');
 
+// Pin the build/verify Node to the production runtime (Namecheap Node 20.20.2). A shell
+// wrapper resolving a different `node` (e.g. a Hermes v22 binary) invalidates the isolation
+// proof. Invoke the exact binary, e.g.:
+//   $HOME/.nvm/versions/node/v20.20.2/bin/node deploy/namecheap/build-artifact.mjs
+const REQUIRED_NODE = process.env.REQUIRED_NODE || 'v20.20.2';
+if (process.version !== REQUIRED_NODE && process.env.ALLOW_NODE_MISMATCH !== '1') {
+  throw new Error(
+    `Build requires Node ${REQUIRED_NODE} but is running ${process.version} at ${process.execPath}. ` +
+    `Invoke the exact binary ($HOME/.nvm/versions/node/${REQUIRED_NODE}/bin/node), ` +
+    `or set ALLOW_NODE_MISMATCH=1 to override (never for a release build).`,
+  );
+}
+
 function run(command, options = {}) {
   console.log(`\n$ ${command}`);
-  execSync(command, { stdio: 'inherit', ...options });
+  const { env = process.env, ...rest } = options;
+  execSync(command, {
+    stdio: 'inherit',
+    ...rest,
+    env: createReleaseChildEnvironment({ baseEnvironment: env }),
+  });
 }
 
 function capture(command, options = {}) {
-  return execSync(command, { encoding: 'utf8', ...options }).trim();
+  const { env = process.env, ...rest } = options;
+  return execSync(command, {
+    encoding: 'utf8',
+    ...rest,
+    env: createReleaseChildEnvironment({ baseEnvironment: env }),
+  }).trim();
+}
+
+function releaseChildEnvironment(overrides = {}) {
+  return createReleaseChildEnvironment({
+    baseEnvironment: { ...process.env, ...overrides },
+  });
+}
+
+function execFile(command, args, options = {}) {
+  const { env = process.env, ...rest } = options;
+  return execFileSync(command, args, {
+    encoding: 'utf8',
+    ...rest,
+    env: createReleaseChildEnvironment({ baseEnvironment: env }),
+  }).trim();
 }
 
 function sha256File(target) {
@@ -82,6 +124,20 @@ async function httpCode(port, hostHeader, pathname) {
 const gitSha = capture('git rev-parse HEAD', { cwd: repoRoot });
 const shortSha = gitSha.slice(0, 7);
 const workingTree = capture('git status --porcelain', { cwd: repoRoot });
+
+// FAIL CLOSED: never build an unreachable or dirty commit into a deployable
+// artifact (production incident 2026-07-23 — the live orderweeddc-c1e8ac7 came
+// from an unpushed SHA). See release-preflight.mjs. Override for throwaway local
+// builds only with ALLOW_DIRTY=1; the remote is GIT_REMOTE (default: origin).
+const releaseRepro = assertReleaseReproducible({
+  execFile,
+  repoRoot,
+  remote: process.env.GIT_REMOTE || 'origin',
+  workingTree,
+  gitSha,
+  allowDirty: process.env.ALLOW_DIRTY === '1',
+});
+
 const artifactName = `orderweeddc-${shortSha}`;
 const distRoot = path.join(repoRoot, 'dist/namecheap');
 const artifactRoot = path.join(distRoot, artifactName);
@@ -98,7 +154,10 @@ if (process.env.CLEAN_INSTALL === '1') {
 // Phase 2 — assets, prisma client, webpack standalone build
 // ---------------------------------------------------------------------------
 run('node scripts/restore-brand-assets.mjs', { cwd: webRoot });
-run('npx prisma generate', { cwd: webRoot });
+run('npx prisma generate', {
+  cwd: webRoot,
+  env: releaseChildEnvironment(),
+});
 run('npx next build --webpack', {
   cwd: webRoot,
   env: { ...process.env, NEXT_OUTPUT: 'standalone', NODE_ENV: 'production' },
@@ -165,7 +224,7 @@ const templateDb = path.join(templateDir, 'orderweeddc-schema-template.db');
 fs.rmSync(templateDb, { force: true });
 run(`npx prisma db push --skip-generate --schema prisma/schema.prisma`, {
   cwd: webRoot,
-  env: { ...process.env, DATABASE_URL: `file:${templateDb}` },
+  env: releaseChildEnvironment({ DATABASE_URL: `file:${templateDb}` }),
 });
 const templateInventory = JSON.parse(
   capture(`node scripts/db-inspect.mjs`, {
@@ -252,6 +311,13 @@ for (const file of serverJsFiles) {
 checks[`no unresolved hashed externals (${serverJsFiles.length} server files scanned)`] =
   unresolvedHits.length === 0;
 
+// Source-map exclusion: standalone server output must not ship .map files
+// (dead weight + source disclosure). Static client maps are handled by Next.
+const serverMapFiles = walkFiles(path.join(artifactRoot, '.next/server')).filter(
+  (file) => file.endsWith('.map'),
+);
+checks['no server source maps in artifact'] = serverMapFiles.length === 0;
+
 function reportChecks() {
   console.log('\nArtifact verification:');
   for (const [name, ok] of Object.entries(checks)) {
@@ -276,13 +342,15 @@ function writeReceipt(extra = {}) {
   const receipt = {
     artifact: artifactName,
     gitSha,
+    releaseRepro,
     workingTree: workingTree === '' ? 'clean' : workingTree.split('\n'),
     builtAt: new Date().toISOString(),
     nodeVersion: process.version,
+    nodePath: process.execPath,
     // Hoisted monorepo: resolve through Node so root node_modules works.
     nextVersion: JSON.parse(
       fs.readFileSync(
-        capture(`node -e "console.log(require.resolve('next/package.json'))"`, {
+        capture(`${JSON.stringify(process.execPath)} -e "console.log(require.resolve('next/package.json'))"`, {
           cwd: webRoot,
         }),
         'utf8',
@@ -290,7 +358,7 @@ function writeReceipt(extra = {}) {
     ).version,
     prismaVersion: JSON.parse(
       fs.readFileSync(
-        capture(`node -e "console.log(require.resolve('@prisma/client/package.json'))"`, {
+        capture(`${JSON.stringify(process.execPath)} -e "console.log(require.resolve('@prisma/client/package.json'))"`, {
           cwd: webRoot,
         }),
         'utf8',
@@ -350,10 +418,27 @@ async function isolatedRuntimeTest() {
       !fs.existsSync(path.join(os.tmpdir(), 'node_modules')),
   );
 
+  // Platform-aware TEST engine. The production artifact ships and uses the Linux RHEL engine;
+  // this isolation test may run on macOS, where dlopen() of a Linux .so.node fails. Select the
+  // engine matching THIS machine from the artifact's own generated client dir and thread it
+  // through every isolated process. app.js only pins RHEL when PRISMA_QUERY_ENGINE_LIBRARY is
+  // unset, so overriding it here changes NOTHING about production behavior.
+  const prismaClientDir = path.join(appRoot, 'node_modules/.prisma/client');
+  const isoEngineFiles = fs.existsSync(prismaClientDir)
+    ? fs.readdirSync(prismaClientDir).filter((f) => f.includes('engine'))
+    : [];
+  const testEngine = selectTestPrismaEngine(isoEngineFiles, process.platform, process.arch);
+  const testEnginePath = path.join(prismaClientDir, testEngine);
+  record(
+    `native test engine selected for ${process.platform}/${process.arch}`,
+    fs.existsSync(testEnginePath),
+    testEngine,
+  );
+
   // Bootstrap a test database inside isolation (also exercises the script).
   const dataDir = path.join(isoRoot, 'data');
   run(
-    `OWD_DATA_DIR=${JSON.stringify(dataDir)} OWD_NODE=${JSON.stringify(process.execPath)} sh bootstrap-production-db.sh`,
+    `PRISMA_QUERY_ENGINE_LIBRARY=${JSON.stringify(testEnginePath)} OWD_DATA_DIR=${JSON.stringify(dataDir)} OWD_NODE=${JSON.stringify(process.execPath)} sh bootstrap-production-db.sh`,
     { cwd: appRoot },
   );
   const inspect = JSON.parse(
@@ -362,10 +447,7 @@ async function isolatedRuntimeTest() {
       env: {
         PATH: process.env.PATH,
         DATABASE_URL: `file:${path.join(dataDir, 'prod.db')}`,
-        PRISMA_QUERY_ENGINE_LIBRARY: path.join(
-          appRoot,
-          'node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x.so.node',
-        ),
+        PRISMA_QUERY_ENGINE_LIBRARY: testEnginePath,
       },
     }),
   );
@@ -385,6 +467,9 @@ async function isolatedRuntimeTest() {
     NODE_ENV: 'production',
     PORT: String(port),
     DATABASE_URL: `file:${path.join(dataDir, 'prod.db')}`,
+    // Test-only: app.js keeps its production RHEL pin when this is UNSET; here we
+    // supply the machine-native engine so the isolated app starts on macOS too.
+    PRISMA_QUERY_ENGINE_LIBRARY: testEnginePath,
   };
   const startServer = () =>
     spawn(process.execPath, ['app.js'], {
@@ -420,6 +505,8 @@ async function isolatedRuntimeTest() {
       ['www redirect 308', 'www.orderweeddc.com', '/', '308'],
       ['unknown host 421', 'evil.example', '/', '421'],
       ['tenant spoof 404', 'orderweeddc.com', '/wellness.localhost', '404'],
+      ['localhost Host spoof 421', 'localhost', '/orderweeddc.localhost', '421'],
+      ['127.0.0.1 Host spoof 421', '127.0.0.1', '/orderweeddc.localhost', '421'],
     ]) {
       record(label, (await httpCode(port, host, pathname)) === expected);
     }
@@ -442,11 +529,13 @@ async function isolatedRuntimeTest() {
     } catch {}
   }
 
-  // Secret scan inside the extracted artifact.
-  const secretHits = capture(
-    `grep -rloE "BEGIN (RSA |EC )?PRIVATE KEY|GEMINI_API_KEY=[A-Za-z0-9_-]{10,}" ${JSON.stringify(appRoot)} 2>/dev/null | head -3 || true`,
+  const exclusionAudit = auditArtifactExclusions(appRoot);
+  record(
+    'no forbidden secret files or credential patterns in artifact',
+    exclusionAudit.passed,
+    `${exclusionAudit.filesScanned} files scanned`,
   );
-  record('no secrets in artifact', secretHits === '');
+  results.artifactExclusionAudit = exclusionAudit;
 
   // Code rollback leaves the database byte-identical.
   const dbBefore = sha256File(path.join(dataDir, 'prod.db'));

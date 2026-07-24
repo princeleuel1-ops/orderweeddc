@@ -13,5 +13,9 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint -w apps/web",
     "check": "npm run lint -w apps/web"
+  },
+  "overrides": {
+    "postcss": "8.5.22",
+    "sharp": "0.35.3"
   }
 }
