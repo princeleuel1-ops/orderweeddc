@@ -10,26 +10,33 @@ import {
   isCanonicalPlatformHostname,
   tenantDomainForRequestHostname,
 } from '@/lib/tenant-host.mjs';
+import {
+  buildTenantRewriteUrl,
+  isAuthorizedTenantRewriteReentry,
+  TENANT_REWRITE_MARKER_HEADER,
+} from '@/lib/tenant-rewrite.mjs';
+
+const TENANT_REWRITE_TOKEN = crypto.randomUUID();
 
 const REDIRECT_MAP: Record<string, string> = {
   'dmvweeddelivery.com': '/?type=delivery',
   'dmvweeddelivery.localhost': '/?type=delivery',
-  
+
   'weedneardc.com': '/',
   'weedneardc.localhost': '/',
-  
+
   'georgetowndispensarydc.com': '/neighborhoods/georgetown',
   'georgetowndispensarydc.localhost': '/neighborhoods/georgetown',
-  
+
   'dupontcircledispensarydc.com': '/neighborhoods/dupont-circle',
   'dupontcircledispensarydc.localhost': '/neighborhoods/dupont-circle',
-  
+
   'capitolhilldispensarydc.com': '/neighborhoods/capitol-hill',
   'capitolhilldispensarydc.localhost': '/neighborhoods/capitol-hill',
-  
+
   'ustreetdispensarydc.com': '/neighborhoods/u-street-shaw',
   'ustreetdispensarydc.localhost': '/neighborhoods/u-street-shaw',
-  
+
   'navyyarddispensarydc.com': '/neighborhoods/navy-yard-wharf',
   'navyyarddispensarydc.localhost': '/neighborhoods/navy-yard-wharf',
 };
@@ -68,17 +75,23 @@ export function proxy(request: NextRequest) {
   const hostnameHeader = request.headers.get('host');
 
   // Standalone re-entry pass-through: the Node standalone server resolves
-  // a middleware rewrite by re-dispatching it internally over loopback,
-  // so pass two arrives with Host localhost:<port> and a path that
-  // already carries the tenant prefix produced by pass one. Let exactly
-  // that shape through untouched. External traffic can never legitimately
-  // present a loopback Host (the front proxy routes by public vhost), and
-  // the tenant prefix must itself be an allowlisted hostname, so this
-  // cannot be used to reach a tenant that pass one would have refused.
+  // a middleware rewrite by re-dispatching it internally over loopback.
+  // Authenticate that second pass with a process-local token forwarded only
+  // as an upstream request header. A client-supplied loopback Host therefore
+  // remains untrusted even when its path starts with an allowlisted tenant.
   const rawAuthority = parseRequestAuthority(hostnameHeader);
   if (rawAuthority && isLoopbackHostname(rawAuthority.hostname)) {
     const tenantPrefix = url.pathname.split('/')[1] ?? '';
-    if (tenantPrefix && parseAllowedRequestHost(tenantPrefix)) {
+    if (
+      isAuthorizedTenantRewriteReentry({
+        loopbackHostname: rawAuthority.hostname,
+        tenantAllowed: Boolean(
+          tenantPrefix && parseAllowedRequestHost(tenantPrefix),
+        ),
+        presentedToken: request.headers.get(TENANT_REWRITE_MARKER_HEADER),
+        expectedToken: TENANT_REWRITE_TOKEN,
+      })
+    ) {
       return NextResponse.next();
     }
   }
@@ -158,19 +171,57 @@ export function proxy(request: NextRequest) {
   const redirectPath = REDIRECT_MAP[host];
   if (redirectPath) {
     const isLocal = host.endsWith('.localhost') || host === 'localhost';
-    const targetBase = isLocal 
+    const targetBase = isLocal
       ? `http://orderweeddc.localhost${port ? `:${port}` : ''}`
       : 'https://orderweeddc.com';
     const targetUrl = `${targetBase}${redirectPath}`;
     return NextResponse.redirect(new URL(targetUrl));
   }
 
-  // 3. Fallback to dynamic brand routing
-  // Rewrite request path to include the domain folder internally
+  // 3. Fallback to dynamic brand routing.
+  //
+  // NextRequest exposes request.url and request.nextUrl from the same parsed URL.
+  // Under Passenger that URL was https://localhost:3000 even though Passenger
+  // launched this standalone server on a different dynamic loopback port. Merely
+  // switching from request.nextUrl to request.url therefore cannot fix the 500.
+  //
+  // Build the production rewrite from Passenger's runtime PORT and a validated
+  // loopback hostname. The existing loopback re-entry guard above then lets the
+  // tenant-prefixed second pass reach the [domain] route without recursion.
   const tenantDomain = tenantDomainForRequestHostname(host);
-  url.pathname = `/${tenantDomain}${url.pathname}`;
-  
-  return NextResponse.rewrite(url);
+
+  let rewriteUrl: URL;
+  try {
+    rewriteUrl = buildTenantRewriteUrl({
+      tenantDomain,
+      pathname: url.pathname,
+      search: url.search,
+      runtimePort: process.env.PORT,
+      runtimeHostname: process.env.HOSTNAME,
+      rawRequestUrl: request.url,
+      production: process.env.NODE_ENV === 'production',
+    });
+  } catch (error) {
+    console.error(
+      'Tenant rewrite configuration error:',
+      error instanceof Error ? error.message : 'unknown error',
+    );
+    return new NextResponse('The application is temporarily unavailable.', {
+      status: 503,
+      headers: {
+        ...NON_INDEXABLE_RESPONSE_HEADERS,
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+    });
+  }
+
+  const rewriteHeaders = new Headers(request.headers);
+  rewriteHeaders.set(TENANT_REWRITE_MARKER_HEADER, TENANT_REWRITE_TOKEN);
+  return NextResponse.rewrite(rewriteUrl, {
+    request: {
+      headers: rewriteHeaders,
+    },
+  });
 }
 
 // Config to limit where the middleware runs
