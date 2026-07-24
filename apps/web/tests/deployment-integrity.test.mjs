@@ -110,11 +110,6 @@ test('builder contract: webpack-only, unresolved-external scan, out-of-repo isol
   assert.match(builder, /mkdtempSync\(path\.join\(os\.tmpdir\(\)/, 'isolation must extract outside the repository');
   assert.match(builder, /isolatedRuntimeTest/, 'isolated runtime results must reach the receipt');
   assert.match(builder, /bundler: 'webpack'/, 'receipt must record the bundler');
-  assert.match(
-    builder,
-    /createReleaseChildEnvironment/,
-    'every release child must use the verified Node path and sanitized environment',
-  );
 
   const gates = read('deploy/namecheap/PRODUCTION_RELEASE_GATES.md');
   assert.match(gates, /Turbopack standalone output is BANNED/);

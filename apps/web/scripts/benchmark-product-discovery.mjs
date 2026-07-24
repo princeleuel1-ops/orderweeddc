@@ -20,11 +20,6 @@ const webRoot = path.resolve(path.dirname(scriptPath), '..');
 const repositoryRoot = path.resolve(webRoot, '..', '..');
 const corpusPath = path.join(webRoot, 'benchmarks', 'discovery-tasks.json');
 const schemaPath = path.join(webRoot, 'prisma', 'schema.prisma');
-const prismaClientGeneratorPath = path.join(
-  path.dirname(require.resolve('@prisma/client/package.json')),
-  'generator-build',
-  'index.js',
-);
 const sanitizedProcessMarker = 'ORDERWEEDDC_BENCHMARK_SANITIZED';
 const cleanupDirectoryPrefix = 'orderweeddc-discovery-benchmark-';
 const allowedMutations = new Set([
@@ -213,9 +208,7 @@ function isolatedPrismaSchema(value) {
     generatorPattern,
     [
       'generator client {',
-      `  provider = ${JSON.stringify(
-        `${process.execPath} ${prismaClientGeneratorPath}`,
-      )}`,
+      '  provider = "prisma-client-js"',
       '  output   = "./client"',
       '  engineType = "binary"',
       '}',
