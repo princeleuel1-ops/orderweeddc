@@ -68,6 +68,7 @@ function safeEnvironment(additions = {}) {
     CHECKPOINT_DISABLE: '1',
     CI: '1',
     PRISMA_HIDE_UPDATE_MESSAGE: '1',
+    PRISMA_GENERATE_SKIP_AUTO_INSTALL: '1',
     ...additions,
   };
 }
@@ -81,6 +82,7 @@ function disposableEnvironment(temporaryRoot, additions = {}) {
     TMP: temporaryRoot,
     TMPDIR: temporaryRoot,
     USERPROFILE: temporaryRoot,
+    NODE_PATH: path.join(repositoryRoot, 'node_modules'),
     ...additions,
   });
 }
@@ -332,7 +334,7 @@ function runPrisma(arguments_, databaseUrl, temporaryRoot) {
     process.execPath,
     [prismaCliPath(), ...arguments_],
     {
-      cwd: temporaryRoot,
+      cwd: webRoot,
       encoding: 'utf8',
       env: disposableEnvironment(temporaryRoot, {
         DATABASE_URL: databaseUrl,
@@ -671,6 +673,11 @@ async function runBenchmark({ mutation = 'none' } = {}) {
 
   try {
     revision = gitRevision(temporaryRoot);
+    fs.symlinkSync(
+      path.join(repositoryRoot, 'node_modules'),
+      path.join(temporaryRoot, 'node_modules'),
+      'dir',
+    );
     fs.writeFileSync(
       temporarySchemaPath,
       isolatedPrismaSchema(fs.readFileSync(schemaPath)),
