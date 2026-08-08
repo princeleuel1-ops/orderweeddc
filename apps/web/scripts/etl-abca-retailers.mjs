@@ -82,7 +82,7 @@ async function run() {
     
     if (!retailer) {
       const potentialMatches = await prisma.retailer.findMany({
-        where: { name: { contains: record.tradeName } }
+        where: { name: { contains: record.tradeName, mode: 'insensitive' } }
       });
       if (potentialMatches.length === 1) {
         retailer = potentialMatches[0];
