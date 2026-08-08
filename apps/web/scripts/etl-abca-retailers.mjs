@@ -26,7 +26,11 @@ async function run() {
     
     // Indices based on the real ABCA Open Data format:
     // 3: ABCA_NUMBER, 5: ADDRESS, 6: FACILITY_TYPE, 7: STATUS, 10: TRADE_NAME, 21: LATITUDE, 22: LONGITUDE
-    const licenseNumber = values[3];
+    // Uppercase to keep entity resolution stable across engines: PostgreSQL
+    // unique lookups are case-sensitive, so a feed that flips case between
+    // runs would otherwise create duplicate staging rows and duplicate
+    // retailers (P2002) instead of matching the existing record.
+    const licenseNumber = values[3]?.trim().toUpperCase();
     const tradeName = values[10] || values[4]; // fallback to NAME if TRADE_NAME empty
     const address = values[5];
     const status = values[7];

@@ -1,7 +1,7 @@
 # CANA Geo Kernel — Evidence Ledger
 
-Slice 1a: PostgreSQL + PostGIS canonical datastore migration.
-Date: 2026-08-08. Base commit: `487ece6`.
+Slice 1a + 1b: PostgreSQL + PostGIS canonical datastore migration and
+foundation proof. Date: 2026-08-08. Base commit: `487ece6`.
 
 States: **VERIFIED** (observed directly) · **PARTIAL** · **INFERRED** ·
 **PLANNED** (designed, not implemented) · **BLOCKED** (needs human action) ·
@@ -57,6 +57,49 @@ observed in this session.
 | 29 | Migration script refuses non-empty destination, verifies counts + invariants | PARTIAL | Code written and reviewed | **Never executed** — requires npm + a source .db |
 | 30 | Geo backfill preserves provenance and marks legacy coords UNKNOWN | PARTIAL | Code written and reviewed | **Never executed** |
 
+## Slice 1b — H3 as a real invariant
+
+| # | Claim | Status | Evidence | Limitations |
+|---|---|---|---|---|
+| 1b.1 | h3 4.2.3 + h3_postgis extensions installed and enabled locally | VERIFIED | `h3_get_extension_version()` = 4.2.3 | Sandbox instance |
+| 1b.2 | Known-vector conversion correct | VERIFIED | Dupont Circle (38.9097, −77.0434) res 9 → `892aa84edabffff` | — |
+| 1b.3 | Round-trip sanity: cell centroid within one res-9 cell of input | VERIFIED | offset = 177.6 m (res-9 edge ≈ 174 m) | — |
+| 1b.4 | Parent derivation works (res 9 → res 7) | VERIFIED | `872aa84edffffff`, resolution introspects as 7 | — |
+| 1b.5 | h3R9 is DERIVED by trigger from lat/lng — not independently writable | VERIFIED | Smoke assertion: hand-written wrong h3R9 overwritten | Single-truth chain: lat/lng → geom → h3R9 |
+| 1b.6 | Drift audit function reports divergence | VERIFIED | Forced drift (trigger disabled) detected — count = 1 | Falsification test, not happy-path |
+| 1b.7 | Kernel refuses to provision without h3 (fail-closed) | VERIFIED | Negative control: exit 3 with explicit remediation message | — |
+| 1b.8 | Extended smoke test passes | VERIFIED | 26/26 assertions incl. 2 falsification tests | — |
+| 1b.9 | Neon supports h3 + h3_postgis on PG17 (4.1.3) | VERIFIED (docs) | neon.com/docs/extensions/pg-extensions, live-crawled 2026-08-08 | Documentation evidence, not yet executed on Neon |
+| 1b.10 | `h3_lat_lng_to_cell` is valid on both 4.1.3 (Neon) and 4.2.3 (local) | VERIFIED | Current name on 4.1.3; deprecation warning only on 4.2.3 | Rename to `h3_latlng_to_cell` on next h3-pg major |
+
+## Slice 1b — semantic audit and fixes
+
+| # | Claim | Status | Evidence | Limitations |
+|---|---|---|---|---|
+| 1b.11 | Full-repo SQLite→PG semantic audit executed across 14 categories | VERIFIED | Audit report; 12 categories CLEAN, 5 findings | Static analysis + code reading; behavior not yet test-executed (npm blocked) |
+| 1b.12 | HIGH: admin stale queue NULLS ordering flip | VERIFIED+FIXED | `admin/page.tsx` — `nulls: 'first'` added | Regression test written, not yet run |
+| 1b.13 | HIGH: claim-approval email un-normalized → duplicate accounts possible | VERIFIED+FIXED | `admin-mutations.mjs` — lowercased at approval site | Same |
+| 1b.14 | MEDIUM: ABCA ETL license-number case instability | VERIFIED+FIXED | Both ETL scripts uppercase before upsert/lookup | Same |
+| 1b.15 | LOW: storage guards for lowercase email/domain | VERIFIED | Guards install + reject mixed-case insert + pre-flight refuses dirty data (all executed live) | Apply after data migration per runbook §4f |
+| 1b.16 | Collation ordering (`name: 'asc'`) difference | VERIFIED, ACCEPTED RISK | Audit finding 2 | Production names consistently cased; revisit if ETL imports mixed case |
+| 1b.17 | PostgreSQL regression test suite written (5 tests incl. 2 negative controls) | PARTIAL | `tests/postgres-semantics.test.mjs` | **Not executed** — npm blocked |
+
+## Slice 1b — geo repository boundary
+
+| # | Claim | Status | Evidence | Limitations |
+|---|---|---|---|---|
+| 1b.18 | Typed geo repository isolates all raw spatial SQL | VERIFIED (SQL), PARTIAL (JS) | All 4 SQL statements executed against live PostGIS with correct results (near-point ordering 1460 m/2737 m, viewport excludes Baltimore, res-7 aggregation, drift=0) | JS wrapper not executed (needs @prisma/client) |
+| 1b.19 | Evidence-gated claim accessor is the only public-map read path | PLANNED (enforcement) | `findEligibleClaims` written; UNKNOWN-by-default | Enforcement lands with Slice 2 UI |
+
+## Slice 1b — Neon policy verification
+
+| # | Claim | Status | Evidence | Limitations |
+|---|---|---|---|---|
+| 1b.20 | Governing terms = Neon Product Specific Schedule (2026-08-05) + Databricks MCSA + Databricks AUP (2026-03-20) | VERIFIED (docs) | neon.com/platform-terms; databricks.com/legal/mcsa; databricks.com/legal/acceptable-use-policy — all read in full | — |
+| 1b.21 | No cannabis/marijuana/controlled-substance/high-risk language in any governing document | VERIFIED (docs) | Full-text search of all three documents | Absence of prohibition ≠ permission |
+| 1b.22 | Cannabis-business classification | **REQUIRES_CLARIFICATION** | Databricks AUP item 6 ("data…in violation of any law") is ambiguous vs federal Schedule I | Written confirmation needed before production launch |
+| 1b.23 | Neon: pooler=PgBouncer transaction-mode; migrations need direct endpoint; pg_dump + logical replication available; us-east-1 confirmed; free tier 0.5 GB / 6 h PITR | VERIFIED (docs) | neon.com docs, live-crawled 2026-08-08 | — |
+
 ## Blocked
 
 | # | Claim | Status | Evidence | Unblock |
@@ -72,7 +115,7 @@ observed in this session.
 | # | Item | Status | Note |
 |---|---|---|---|
 | 36 | MapLibre replacing Leaflet | PLANNED | Slice 2. Leaflet remains in place and working. |
-| 37 | H3 aggregation | PLANNED | `GeoEntity.h3R9` column exists; **no H3 library, no indexing logic** |
+| 37 | ~~H3 aggregation~~ | ~~PLANNED~~ **SUPERSEDED by 1b.1–1b.8** | h3R9 is now trigger-derived, invariant-audited, and falsification-tested. Cell-STATE aggregation (demand/supply scoring) remains PLANNED for Slice 5. |
 | 38 | Routing, isochrones, Valhalla | PLANNED | Slice 3. No interface written yet. |
 | 39 | GeoProvider registry/router, benchmark harness, promotion court | PLANNED | Slices 3 and 8. Not started. |
 | 40 | GeoCell state, feature store, opportunity engine, simulation | PLANNED | Slices 5–7. Tables deliberately not invented ahead of use. |

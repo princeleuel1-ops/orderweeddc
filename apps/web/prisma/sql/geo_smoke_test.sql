@@ -122,7 +122,73 @@ SELECT pg_temp.assert(
   (SELECT verification FROM "GeoClaim" WHERE id='smoke-claim') = 'UNKNOWN',
   'new claim defaults to UNKNOWN, not assumed true');
 
--- 10. Alias uniqueness: one external ID cannot map to two canonical entities.
+-- 10. H3: extension present, deterministic, correct resolution, and enforced
+--     as an invariant rather than trusted as stored decoration.
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM pg_extension WHERE extname = 'h3') = 1,
+  'h3 extension installed');
+
+-- Known vector: Dupont Circle (38.9097, -77.0434) at res 9.
+SELECT pg_temp.assert(
+  h3_lat_lng_to_cell(POINT(-77.0434, 38.9097), 9)::text = '892aa84edabffff',
+  'H3 conversion matches known Dupont Circle vector');
+
+-- Determinism: recomputing yields the identical cell.
+SELECT pg_temp.assert(
+  h3_lat_lng_to_cell(POINT(-77.0434, 38.9097), 9)
+    = h3_lat_lng_to_cell(POINT(-77.0434, 38.9097), 9),
+  'H3 conversion is deterministic');
+
+-- The trigger derived h3R9 automatically for rows inserted above.
+SELECT pg_temp.assert(
+  (SELECT "h3R9" IS NOT NULL FROM "GeoEntity" WHERE id='smoke-dupont'),
+  'trigger populated h3R9 on insert');
+
+SELECT pg_temp.assert(
+  (SELECT h3_get_resolution((SELECT "h3R9" FROM "GeoEntity" WHERE id='smoke-dupont')::h3index)) = 9,
+  'derived h3R9 is resolution 9');
+
+-- h3R9 follows coordinate updates (smoke-dupont was moved to Georgetown in §5).
+SELECT pg_temp.assert(
+  (SELECT "h3R9" FROM "GeoEntity" WHERE id='smoke-dupont')
+    = h3_lat_lng_to_cell(POINT(-77.0654, 38.9076), 9)::text,
+  'h3R9 follows lat/lng update (no silent divergence)');
+
+-- Falsification: a hand-written WRONG h3R9 must be overwritten by the trigger,
+-- not stored. Stored H3 is never trusted over recomputation.
+UPDATE "GeoEntity" SET "h3R9" = '8f2aaaaaaaaaaaa' WHERE id='smoke-wh';
+SELECT pg_temp.assert(
+  (SELECT "h3R9" FROM "GeoEntity" WHERE id='smoke-wh')
+    = h3_lat_lng_to_cell(POINT(-77.0365, 38.8977), 9)::text,
+  'hand-written divergent h3R9 is overwritten by derivation (single truth)');
+
+-- Drift audit function reports zero divergent rows.
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM cana_geoentity_h3_drift()) = 0,
+  'cana_geoentity_h3_drift() finds no drift');
+
+-- Falsification of the audit itself: disable the trigger, force drift, and
+-- prove the audit CATCHES it. An audit that cannot fail proves nothing.
+ALTER TABLE "GeoEntity" DISABLE TRIGGER "GeoEntity_sync_geom";
+UPDATE "GeoEntity" SET "h3R9" = '892aa84edabffff' WHERE id='smoke-far'; -- Baltimore w/ DC cell
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM cana_geoentity_h3_drift()) = 1,
+  'drift audit detects a forced divergent h3R9 (negative control)');
+ALTER TABLE "GeoEntity" ENABLE TRIGGER "GeoEntity_sync_geom";
+
+-- Parent derivation for future neighborhood-level aggregation.
+SELECT pg_temp.assert(
+  h3_get_resolution(h3_cell_to_parent('892aa84edabffff'::h3index, 7)) = 7,
+  'parent cell derivation to res 7 works');
+
+-- H3 <-> PostGIS interop: res-9 cell centroid sits within 200 m of the point.
+SELECT pg_temp.assert(
+  ST_Distance(
+    h3_cell_to_geometry('892aa84edabffff'::h3index)::geography,
+    ST_SetSRID(ST_MakePoint(-77.0434, 38.9097),4326)::geography) < 200,
+  'H3 cell geometry round-trips within a res-9 cell radius');
+
+-- 11. Alias uniqueness: one external ID cannot map to two canonical entities.
 INSERT INTO "GeoEntityAlias" (id,"geoEntityId",namespace,"externalId")
 VALUES ('smoke-alias','smoke-dupont','overture_gers','08f2aa8c8f2aa8c8');
 

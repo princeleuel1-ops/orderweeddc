@@ -17,6 +17,11 @@ out to be small, which is why this migration is low-risk.
 | `sqlite_master` query | `scripts/db-inspect.mjs` | Medium | Now detects engine, uses `pg_tables` on PostgreSQL |
 | `PRAGMA index_list` | `scripts/test-public-submission.mjs` | Medium | Now uses `pg_indexes` on PostgreSQL |
 | **Case-sensitive search** | **17 `contains` filters, none with `mode: 'insensitive'`** | **HIGH** | 12 user-facing filters fixed; see below |
+| **NULLS ordering** | Admin stale queue `lastLicenseCheck: 'asc'` — SQLite puts NULLs first, PostgreSQL puts them LAST, silently burying never-checked retailers | **HIGH** | `{ sort: 'asc', nulls: 'first' }` in `admin/page.tsx`; regression test added |
+| **Case-sensitive uniques (email)** | Claim approval used `claim.email` un-normalized in `findUnique`+`create`; PostgreSQL would miss `owner@…` when claim says `Owner@…` and create a duplicate account | **HIGH** | Lowercased at approval site in `admin-mutations.mjs`; storage guard added |
+| **Case-sensitive uniques (license)** | ABCA ETL staged raw CSV case; a feed flipping case between runs would create duplicate staging rows and a `P2002` on promotion | MEDIUM | `.trim().toUpperCase()` in both ETL scripts |
+| **Collation ordering (`name: 'asc'`)** | SQLite sorts BINARY (case-sensitive); PostgreSQL sorts per locale. Mixed-case names may order differently in "Name A-Z" | LOW (ACCEPTED) | Documented accepted risk: production names are consistently cased; revisit if ETL introduces mixed-case names |
+| **`Brand.domain` unique case** | Mixed-case stored domain would never match lowercased request hostnames | LOW | `CHECK (domain = lower(domain))` storage guard |
 | ID generation | `@default(uuid())` — engine-independent | None | None needed |
 | Timestamps | `DateTime` with `@default(now())` / `@updatedAt` | Low | Coerced during data migration |
 | Booleans | SQLite stores 0/1; PostgreSQL is a real boolean | Low | Coerced during data migration |
@@ -105,7 +110,19 @@ SQLITE_PATH=/path/to/prod.db node scripts/migrate-sqlite-to-postgres.mjs
 # 4e. Derive canonical geo entities from retailer coordinates.
 node scripts/backfill-geo-entities.mjs --dry-run
 node scripts/backfill-geo-entities.mjs
+
+# 4f. Install PostgreSQL semantics guards (lowercase email/domain CHECKs).
+#     Pre-flight aborts with a fix-it command if existing rows violate them.
+psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/postgres_semantics_guards.sql
 ```
+
+Note on H3 extensions: the geo kernel requires `h3` + `h3_postgis`
+(`CREATE EXTENSION h3_postgis CASCADE` pulls in `postgis_raster`). Neon ships
+h3 4.1.3 on PG17 — verified supported. The kernel uses `h3_lat_lng_to_cell`,
+which is the current name on 4.1.3 and still valid (deprecation warning only)
+on 4.2.3. If a future host lacks the h3 extension entirely, the kernel
+provisioning fails closed with instructions to switch `h3R9` maintenance to an
+application-side H3 library — the H3 semantics are portable by design.
 
 The migration script **refuses to run against a non-empty PostgreSQL** unless
 `--allow-nonempty` is passed, so it cannot silently double-insert. It verifies
@@ -128,6 +145,9 @@ npm run test:http
 npm run build
 DATABASE_URL="$DIRECT_URL" node scripts/db-inspect.mjs --assert-core
 psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/geo_smoke_test.sql
+# PostgreSQL-specific semantic regressions (case-insensitivity, NULLS
+# ordering, unique case-variants). Requires a seeded PostgreSQL database.
+node --test tests/postgres-semantics.test.mjs
 ```
 
 Compare `db-inspect` output against the pre-migration receipt from §2. Record
