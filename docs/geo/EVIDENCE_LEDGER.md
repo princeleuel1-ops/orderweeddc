@@ -100,6 +100,26 @@ observed in this session.
 | 1b.22 | Cannabis-business classification | **REQUIRES_CLARIFICATION** | Databricks AUP item 6 ("data…in violation of any law") is ambiguous vs federal Schedule I | Written confirmation needed before production launch |
 | 1b.23 | Neon: pooler=PgBouncer transaction-mode; migrations need direct endpoint; pg_dump + logical replication available; us-east-1 confirmed; free tier 0.5 GB / 6 h PITR | VERIFIED (docs) | neon.com docs, live-crawled 2026-08-08 | — |
 
+## Slice 2 foundation (map surface behind feature flag)
+
+| # | Claim | Status | Evidence | Limitations |
+|---|---|---|---|---|
+| 2.1 | Leaflet parity inventory produced from code inspection (P1–P10) | VERIFIED | `docs/geo/SLICE2_MAP_PARITY.md`; every row cites the file | Parity gate G1–G10 not yet executable (npm) |
+| 2.2 | PublicMapProjection evidence gate implemented and **executed**: 14/14 tests pass with bare node, incl. 5 falsification tests (ineligible/unverified/stale/off-allowlist claims refused; Null Island unmappable) | VERIFIED | `node --test tests/public-map-projection.test.mjs` → pass 14 | Pure-logic layer; DB integration pending npm |
+| 2.3 | Missing claims render as ABSENT keys → UI must show explicit unknown; no fabricated "Open now" possible through this layer | VERIFIED | Test: "missing claims render as ABSENT keys" | Enforcement depends on components consuming only the projection |
+| 2.4 | MapLibre surface written: markers as focusable buttons, evidence badges, explicit unknown status line, error state (no silent blank map), scroll-hijack off, fit-bounds parity | PARTIAL | `retailer-map-maplibre.tsx` | **Not compiled, not rendered** — maplibre-gl not installable (npm blocked) |
+| 2.5 | Engine switch: CANA_MAP_ENGINE env, default leaflet, Leaflet untouched, rollback = unset env | VERIFIED (code) | `retailer-map-loader.tsx`, `tile-sources.mjs`, page wiring | Runtime behavior unverified until build |
+| 2.6 | Provider-neutral basemap factory: carto-raster (today's exact tiles, keyless) / maptiler / pmtiles as config | VERIFIED (code) | `tile-sources.mjs` | maptiler/pmtiles paths unexercised |
+| 2.7 | Viewport API with bounded results, area ceiling, cache headers, no-SQL-leak error path | PARTIAL | `api/geo/viewport/route.ts`; underlying SQL executed live in 1b.18 | Route handler itself not bootable yet |
+
+## Slice 3 foundation (routing contract)
+
+| # | Claim | Status | Evidence | Limitations |
+|---|---|---|---|---|
+| 3.1 | Provider-neutral routing contract with registry + config selection | VERIFIED | `routing-provider.mjs`; 6/6 tests **executed** | No real network adapter yet — by design |
+| 3.2 | Truth law encoded: adapters must return UNKNOWN rather than fake travel times; straight-line allowed only as labeled lower bound | VERIFIED | Tests: null provider returns UNKNOWN, travelTimeSeconds=null | Valhalla/OSRM adapters are Slice 3 execution work |
+| 3.3 | Haversine lower bound agrees with PostGIS geography within 1% (1460 m pair) | VERIFIED | Executed test cross-checks ledger claim 13 | — |
+
 ## Blocked
 
 | # | Claim | Status | Evidence | Unblock |
