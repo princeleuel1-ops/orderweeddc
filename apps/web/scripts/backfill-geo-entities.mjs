@@ -99,7 +99,8 @@ async function main() {
       };
 
       if (DRY_RUN) {
-        existing ? receipt.updated++ : receipt.created++;
+        if (existing) receipt.updated += 1;
+        else receipt.created += 1;
         continue;
       }
 

@@ -72,7 +72,8 @@ export function projectRetailerMarker({ retailer, geoEntity = null, claims = [],
     return null; // unmappable — the entity is simply absent from the map
   }
 
-  const projectedClaims = {};
+  const projectedClaims =
+    /** @type {Record<string, NonNullable<ReturnType<typeof projectClaim>>>} */ ({});
   for (const claim of claims) {
     const projected = projectClaim(claim, asOf);
     if (!projected) continue;
@@ -90,7 +91,9 @@ export function projectRetailerMarker({ retailer, geoEntity = null, claims = [],
     lat,
     lng,
     h3R9: geoEntity?.h3R9 ?? null,
-    coordinateSource: geoEntity ? 'geo_entity' : 'legacy_retailer',
+    coordinateSource: geoEntity
+      ? /** @type {const} */ ('geo_entity')
+      : /** @type {const} */ ('legacy_retailer'),
     coordinateVerification: geoEntity?.verification ?? 'UNKNOWN',
 
     // Retailer-level truth badge, derived from the existing Ω⁶-style fields.

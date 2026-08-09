@@ -120,14 +120,51 @@ observed in this session.
 | 3.2 | Truth law encoded: adapters must return UNKNOWN rather than fake travel times; straight-line allowed only as labeled lower bound | VERIFIED | Tests: null provider returns UNKNOWN, travelTimeSeconds=null | Valhalla/OSRM adapters are Slice 3 execution work |
 | 3.3 | Haversine lower bound agrees with PostGIS geography within 1% (1460 m pair) | VERIFIED | Executed test cross-checks ledger claim 13 | — |
 
+## PATH A gate execution (2026-08-09, local PostgreSQL 17.8 + PostGIS 3.5.6 + h3 4.2.3)
+
+Every row below was EXECUTED and its output observed. Nothing is projected.
+
+| # | Gate | Result | Receipt |
+|---|---|---|---|
+| A.1 | npm install | PASS | 437 packages, 15 s, 0 peer warnings; lockfile delta +223 lines (maplibre-gl tree only) |
+| A.2 | prisma validate | PASS | "schema is valid" |
+| A.3 | prisma generate | PASS | client v6.19.3 |
+| A.4 | Baseline migration generated + applied | PASS | `20260809072622_postgres_baseline_with_geo_kernel` — 26 CREATE TABLE/EXTENSION statements incl. `CREATE EXTENSION postgis` |
+| A.5 | Geo kernel + 26-assertion smoke test on app DB | PASS | `GEO SMOKE TEST PASSED` |
+| A.6 | Seed against PostgreSQL | PASS | full seed completed |
+| A.7 | Semantics guards installed | PASS | `POSTGRES SEMANTICS GUARDS INSTALLED` |
+| A.8 | Geo backfill | PASS | 5 created, 0 skipped; geom+h3R9 derived 5/5; drift = 0 |
+| A.9 | **All node:test suites** | **PASS 233/233** (after classified fixes below) | `ℹ pass 233, fail 0` |
+| A.10 | PostgreSQL regression suite | PASS 6/6 | dupont→Dupont verified live; bare-contains negative control held |
+| A.11 | Geo + routing suites | PASS 20/20 | — |
+| A.12 | test:db scripts | PASS | 19/19 PASS lines, exit 0 |
+| A.13 | typecheck (tsc --noEmit) | PASS | exit 0 (after 3 literal-type fixes, below) |
+| A.14 | lint | PASS | 0 errors, 5 pre-existing `<img>` warnings |
+| A.15 | production build | PASS | exit 0, all routes compiled |
+| A.16 | **application boot against PostgreSQL** | PASS | `/api/health` → `{"status":"HEALTHY","services":{"database":{"status":"UP","brandCount":10,"totalRetailers":5}}}` |
+| A.17 | DB-backed routes | PASS | homepage 200, retailer detail 200 |
+| A.18 | Geo viewport API live | PASS | 5 canonical entities with h3R9, verification honest UNKNOWN, 30 ms; too-large box → 400; bad params → 400 |
+| A.19 | test:http gate | PASS | exit 0, 67 PASS, 0 FAIL |
+| A.20 | **Migration rehearsal** (base-commit SQLite → PostgreSQL) | PASS | `MIGRATED_AND_VERIFIED`: 22 tables, 252 rows, 0 mismatches; FK orphans 0/0/0; exact UUID + epoch-ms + coordinate fidelity; see `docs/migration/REHEARSAL_RECEIPT.md` |
+| A.21 | Rehearsal DB geo chain | PASS | backfill 5/5, drift 0, smoke 26/26, guards installed, regression suite 6/6 on migrated data |
+
+### Failure classification (initial run: 233 tests, 5 failures → all resolved)
+
+| Failure | Classification | Proof | Resolution |
+|---|---|---|---|
+| `merchant-dashboard.test.mjs` catalog where-shape | **EXPECTED CHANGE, test updated** | Test asserted the pre-migration SQLite where-shape verbatim; the `mode:'insensitive'` addition is the audited, deliberate fix | Test now encodes the new shape with rationale |
+| 4 × `product-benchmark.test.mjs` | **INFRASTRUCTURE (test harness), ported** | Harness provisioned its own `benchmark.sqlite` + `db push` — impossible against a postgresql schema by construction, NOT a code regression | Harness ported to disposable PostgreSQL databases (create/drop per run, FORCE cleanup); sanctioned `CANA_BENCHMARK_DATABASE_URL` pass-through documented; **12/12 scenarios PASS incl. all three controlled-regression falsification runs; safety receipt intact (0 credential-named vars, 0 non-loopback requests, temp DB dropped)** |
+| 3 tsc literal-type errors | **EXPECTED (JS/TS boundary)** | `.mjs` literals widen to `string` crossing into typed TSX | JSDoc const casts; tsc exit 0 |
+| 1 eslint error (sync setState in effect) | **REGRESSION in new Slice 2 component, fixed** | Introduced by me in `retailer-map-maplibre.tsx` | `queueMicrotask` defer; 0 errors |
+
 ## Blocked
 
 | # | Claim | Status | Evidence | Unblock |
 |---|---|---|---|---|
 | 31 | Managed PostgreSQL provisioned for production | BLOCKED | — | Human: create DB, supply `DATABASE_URL` + `DIRECT_URL` (see runbook §8) |
-| 32 | 37 existing test suites pass on PostgreSQL | BLOCKED | — | Sandbox firewall denies `registry.npmjs.org`; `npm install` cannot run |
-| 33 | `tsc --noEmit`, `lint`, `next build` pass | BLOCKED | — | Same |
-| 34 | `prisma migrate` baseline generated | BLOCKED | — | Same |
+| 32 | Existing test suites pass on PostgreSQL | ~~BLOCKED~~ **RESOLVED — see PATH A.9** | 233/233 | npm access granted 2026-08-09 |
+| 33 | tsc/lint/build pass | ~~BLOCKED~~ **RESOLVED — see PATH A.13–A.15** | exit 0 each | — |
+| 34 | prisma migrate baseline | ~~BLOCKED~~ **RESOLVED — see PATH A.4** | `20260809072622_postgres_baseline_with_geo_kernel` | — |
 | 35 | Provider cannabis-AUP written confirmation obtained | BLOCKED | ADR-0002 records the policy research | Human/legal action |
 
 ## Not built — designed only

@@ -101,8 +101,11 @@ export default function RetailerMapMapLibre({ markers, onMarkerSelect, selectedR
         scrollZoom: false,
         attributionControl: { compact: true },
       });
-    } catch (error) {
-      setMapError('The map could not be initialized.');
+    } catch {
+      // Deferred so the state update happens outside the synchronous effect
+      // body (avoids cascading-render lint rule while keeping the visible
+      // error state).
+      queueMicrotask(() => setMapError('The map could not be initialized.'));
       return;
     }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');

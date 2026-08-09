@@ -221,7 +221,7 @@ test('engine behavior: unique(email) does not deduplicate case variants', async 
     second = await prisma.user.create({
       data: { email: `${RUN}-OWNER@example.com`, password: 'x', role: 'CUSTOMER' },
     });
-  } catch (error) {
+  } catch {
     // If the storage guard (User_email_lowercase CHECK) is installed, the
     // mixed-case insert is rejected outright — the strongest outcome.
     guardBlocked = true;

@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         },
       },
     );
-  } catch (error) {
+  } catch {
     // Never leak SQL or connection details to the public surface.
     return NextResponse.json({ error: 'geo query failed' }, { status: 500 });
   }
