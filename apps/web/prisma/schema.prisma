@@ -428,3 +428,71 @@ model StagingABCARetailer {
   @@index([licenseNumber])
   @@index([status])
 }
+
+// ============================================================
+// CANA × ORDERWEEDDC SOVEREIGN VISUAL INTELLIGENCE MODELS
+// ============================================================
+
+model VisualSlotState {
+  id                      String             @id @default(uuid())
+  slotId                  String             @unique
+  contractId              String
+  mechanism               String
+  currentChampionId       String?
+  previousChampionId      String?
+  deploymentStatus        String             @default("CHAMPION") // CHAMPION, CANARY, ROLLED_BACK, FALLBACK
+  fallbackAsset           String
+  fallbackClass           String             @default("CURATED_FALLBACK") // CURATED_FALLBACK, EMERGENCY_FALLBACK, PRODUCTION_CHAMPION
+  performanceBudgetKb     Int                @default(350)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  promotedAt              DateTime?
+  rolledBackAt            DateTime?
+  rollbackReason          String?
+  candidates              VisualCandidate[]
+  deployments             VisualDeployment[]
+}
+
+model VisualCandidate {
+  id                 String                 @id @default(uuid())
+  slotId             String
+  slot               VisualSlotState        @relation(fields: [slotId], references: [slotId], onDelete: Cascade)
+  candidateId        String                 @unique
+  assetUrl           String
+  altText            String
+  aspectRatio        String                 @default("16/9")
+  mechanism          String
+  generationMode     String                 // LIVE_PROVIDER_OUTPUT | SIMULATED_TEST_OUTPUT | CURATED_FALLBACK | EMERGENCY_FALLBACK
+  provider           String?                // OpenAI_DallE3 | Google_Imagen3 | LocalSimulation
+  model              String?
+  providerRequestId  String?
+  promptHash         String?
+  lineage            String?                // JSON stringified lineage metadata
+  createdAt          DateTime               @default(now())
+  qualityReceipts    VisualQualityReceipt[]
+}
+
+model VisualDeployment {
+  id                 String          @id @default(uuid())
+  slotId             String
+  slot               VisualSlotState @relation(fields: [slotId], references: [slotId], onDelete: Cascade)
+  candidateId        String
+  actorId            String          // Owner user ID, Merchant ID, or SYSTEM
+  actorRole          String          // OWNER | MERCHANT | SYSTEM
+  deploymentAction   String          // PROMOTE_CHAMPION | ROLLBACK | CANARY_DEPLOY
+  status             String          @default("COMPLETED")
+  reason             String?
+  createdAt          DateTime        @default(now())
+}
+
+model VisualQualityReceipt {
+  id                 String          @id @default(uuid())
+  candidateId        String
+  candidate          VisualCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Cascade)
+  slotId             String
+  contractId         String
+  compositeScore     Float
+  verdict            String          // APPROVED_FOR_CANARY | REJECTED
+  checkReceiptsJson  String          // Detailed JSON scores
+  evaluatedAt        DateTime        @default(now())
+}

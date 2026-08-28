@@ -37,6 +37,7 @@ import {
   Store,
   Truck,
 } from 'lucide-react';
+import { VisualHero } from '@/components/visual-hero';
 
 type Props = {
   params: Promise<{ domain: string }>;
@@ -185,12 +186,12 @@ export default async function TenantHomePage({ params, searchParams }: Props) {
               </p>
             </div>
             <div className="hidden lg:col-span-2 lg:block">
-              <img
-                src="/art/hero-dc.jpg"
-                alt="Illustrative artwork of the Washington, D.C. skyline at dawn"
-                width={1680}
-                height={720}
-                className="w-full rounded-2xl border border-brand-border object-cover shadow-xl shadow-emerald-950/10"
+              <VisualHero
+                slotId="visual://customer.home.hero.primary"
+                title="D.C. Cannabis, with receipts."
+                subtitle="Every dispensary, delivery service, menu, and deal is labeled with verified evidence."
+                kicker="Sovereign Visual System"
+                theme="NIGHT_OBSIDIAN"
               />
             </div>
           </div>

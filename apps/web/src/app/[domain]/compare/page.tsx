@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DataStatusBadge } from '@/components/data-status-badge';
+import { VisualHero } from '@/components/visual-hero';
 import { prisma } from '@/lib/prisma';
 import { isPubliclyVerified } from '@/lib/data-status.mjs';
 import {
@@ -182,19 +183,15 @@ export default async function RetailerComparePage({
         </Link>
       </div>
 
+      <VisualHero
+        slotId="visual://customer.compare.terpenes"
+        title="Compare records, not hype."
+        subtitle="Compare public retailer records by the evidence and freshness orderweeddc can actually prove. No sponsored distortion."
+        kicker="orderweeddc Trust Lens"
+        theme="NIGHT_OBSIDIAN"
+      />
+
       <section className="overflow-hidden rounded-2xl border border-brand-border bg-brand-surface">
-        <div className="border-b border-brand-border bg-gradient-to-br from-brand-primary/15 via-brand-surface to-brand-surface px-6 py-8 sm:px-8">
-          <p className="kicker mb-2">orderweeddc Trust Lens</p>
-          <h1 className="font-display text-3xl font-black tracking-tight text-brand-text sm:text-4xl">
-            Compare records, not hype.
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-muted">
-            Compare up to {RETAILER_COMPARE_LIMIT} public records by the
-            evidence and freshness orderweeddc can actually prove. This view does not
-            rank businesses, infer quality, or turn sponsored placement into a
-            trust signal.
-          </p>
-        </div>
         <div className="grid gap-px bg-brand-border sm:grid-cols-3">
           {[
             ['Evidence', 'Source and review provenance stay visible.'],

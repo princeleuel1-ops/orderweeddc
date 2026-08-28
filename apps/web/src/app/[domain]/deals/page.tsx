@@ -12,6 +12,7 @@ import {
   jsonLdScriptProps,
 } from '@/lib/structured-data.mjs';
 import { Flame } from 'lucide-react';
+import { VisualHero } from '@/components/visual-hero';
 
 type Props = {
   params: Promise<{ domain: string }>;
@@ -94,7 +95,6 @@ export default async function DealsHubPage({ params }: Props) {
     { name: 'Home', url: `${origin.origin}/` },
     { name: 'Deals', url: `${origin.origin}/deals` },
   ]);
-  const verifiedCount = offerLdItems.length;
 
   return (
     <div className="flex-grow animate-fade-in">
@@ -105,37 +105,19 @@ export default async function DealsHubPage({ params }: Props) {
         <script key={i} {...jsonLdScriptProps(ld)} />
       ))}
 
-      {/* Hero header */}
-      <section className="hero-aurora border-b border-brand-border px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <Link href="/" className="text-xs font-bold text-brand-muted transition-colors hover:text-brand-primary">
-            ← Back to directory
-          </Link>
-          <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="kicker mb-3">Verified Promotion Hub</p>
-              <h1 className="font-display text-3xl font-extrabold tracking-tight text-brand-text sm:text-4xl">
-                D.C. Dispensary{' '}
-                <span className="text-brand-primary">Deals &amp; Offers</span>
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-brand-muted">
-                Discover active promotional discounts, daily specials, and verified promo codes from D.C. licensed cannabis retailers.
-              </p>
-              <p className="mt-3 max-w-2xl text-xs leading-relaxed text-brand-muted/90">
-                Every deal shows an expiry date and a source label — and{' '}
-                {verifiedCount > 0 ? `${verifiedCount} ` : ''}verified offer
-                {verifiedCount === 1 ? '' : 's'} publish a machine-readable
-                validity window so search and AI assistants never surface an
-                expired promotion. We never reorder deals by who pays.
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="font-display text-2xl font-black text-brand-text">{deals.length}</span>
-              <span className="block text-xs font-bold uppercase tracking-wider text-brand-muted">Active Deals</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Sovereign Visual Hero */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
+        <Link href="/" className="text-xs font-bold text-brand-muted transition-colors hover:text-brand-primary">
+          ← Back to directory
+        </Link>
+        <VisualHero
+          slotId="visual://customer.deals.hero"
+          title="D.C. Dispensary Deals & Offers"
+          subtitle="Discover active promotional discounts, daily specials, and verified promo codes from D.C. licensed cannabis retailers."
+          kicker="Verified Promotion Hub"
+          theme="NIGHT_OBSIDIAN"
+        />
+      </div>
 
       <div className="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {/* Deals Grid */}

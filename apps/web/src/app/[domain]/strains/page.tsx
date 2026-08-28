@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { ArrowRight, Sprout } from 'lucide-react';
+import { VisualHero } from '@/components/visual-hero';
 import { STRAIN_SLUGS, STRAIN_TYPES } from '@/lib/strain-content.mjs';
 import { productDiscoveryWhere } from '@/lib/product-discovery.mjs';
 import { buildPublicMetadata } from '@/lib/seo-meta.mjs';
@@ -48,20 +49,16 @@ export default async function StrainsIndexPage({
   return (
     <div className="flex-grow animate-fade-in">
       {breadcrumb && <script {...jsonLdScriptProps(breadcrumb)} />}
-      <section className="hero-aurora border-b border-brand-border px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <p className="kicker mb-4">Product knowledge · No effect guarantees</p>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-brand-text sm:text-5xl">
-            Strain types, <span className="text-brand-primary">honestly explained</span>
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-brand-muted">
-            Sativa, indica, hybrid, and CBD are industry labels — useful for
-            browsing, unreliable as effect promises. These guides explain what
-            each label actually tells you and link to evidence-labeled product
-            records. Not medical advice.
-          </p>
-        </div>
-      </section>
+      {/* Sovereign Visual Hero */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
+        <VisualHero
+          slotId="visual://customer.strains.hero"
+          title="Strain types, honestly explained"
+          subtitle="Sativa, indica, hybrid, and CBD are industry labels — useful for browsing, unreliable as effect promises. These guides explain what each label actually tells you."
+          kicker="Product Knowledge · No Effect Guarantees"
+          theme="NIGHT_OBSIDIAN"
+        />
+      </div>
 
       <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
